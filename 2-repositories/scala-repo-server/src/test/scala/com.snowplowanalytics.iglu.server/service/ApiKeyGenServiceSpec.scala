@@ -55,7 +55,7 @@ class ApiKeyGenServiceSpec extends Specification
   var readKey = ""
   var writeKey = ""
 
-  val start = "/api/auth/"
+  val start = "/api/apikeys/"
   val deleteUrl = s"${start}keygen?key="
 
   val vendorPrefix = "com.test.dont.take.this"

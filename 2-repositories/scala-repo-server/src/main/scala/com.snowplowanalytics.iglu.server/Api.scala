@@ -30,7 +30,7 @@ trait Api extends HttpService with CoreActors with Core {
 
   lazy val routes =
     pathPrefix("api") {
-      pathPrefix("auth") {
+      pathPrefix("apikeys") {
         new ApiKeyGenService(apiKeyActor).routes
       } ~
       pathPrefix("schemas") {
