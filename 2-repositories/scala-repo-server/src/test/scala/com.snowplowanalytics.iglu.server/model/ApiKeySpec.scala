@@ -55,15 +55,24 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
 
   "ApiKeyDAO" should {
 
-    "for createTable" should {
+    "for initTable" should {
 
       "create the apikeys table" in {
-        apiKey.createTable
+        apiKey.initTable
         database withDynSession {
           Q.queryNA[Int](
             s"""select count(*)
             from pg_catalog.pg_tables
             where tablename = '${tableName}';""").first === 1
+        }
+      }
+
+      "create the super api key" in {
+        database withDynSession {
+          Q.queryNA[Int](
+            s"""select count(*)
+            from ${tableName}
+            where permission = 'super';""").first === 1
         }
       }
     }

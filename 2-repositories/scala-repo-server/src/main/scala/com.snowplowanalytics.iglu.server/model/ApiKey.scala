@@ -81,12 +81,20 @@ class ApiKeyDAO(val db: Database) extends DAO {
   /**
    * Creates the apikeys table.
    */
-  def createTable = db withDynSession { apiKeys.ddl.create }
+  private def createTable = db withDynSession { apiKeys.ddl.create }
 
   /**
    * Deletes the apikeys table.
    */
   def dropTable = db withDynSession { apiKeys.ddl.drop }
+
+  /**
+   * Creates the apikeys table and inserts the super API key.
+   */
+  def initTable = {
+    createTable
+    add(".", "super")
+  }
 
   /**
    * Gets an API key from an uuid.

@@ -44,7 +44,7 @@ import slick.jdbc.meta.MTable
 trait BootedCore extends Core with Api {
 
   // Creates a new ActorSystem
-  def system = ActorSystem("iglu-server")
+  def system = ActorSystem("iglu-repo-server")
   def actorRefFactory = system
 
   // Starts a new http service
@@ -57,7 +57,7 @@ trait BootedCore extends Core with Api {
       new SchemaDAO(ServerConfig.db).createTable
     }
     if (MTable.getTables("apikeys").list.isEmpty) {
-      new ApiKeyDAO(ServerConfig.db).createTable
+      new ApiKeyDAO(ServerConfig.db).initTable
     }
   }
 
