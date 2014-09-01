@@ -35,16 +35,17 @@ import spray.routing._
 
 // Swagger
 import com.wordnik.swagger.annotations._
+import javax.ws.rs.Path
 
 /**
  * Service to interact with API keys.
  * @constructor create a new API key generation service with an apiKey actor
  * @param apiKeyActor a reference to a ``ApiKeyActor``
  */
-@Api(value = "/api/apikeys/keygen", position = 2,
+@Api(value = "/api/apikeys", position = 2,
   description = """Operations dealing with API key generation and deletion,
   requires a super API key""")
-class ApiKeyGenService(apiKeyActor: ActorRef)
+class ApiKeyService(apiKeyActor: ActorRef)
 (implicit executionContext: ExecutionContext) extends Directives with Service {
 
   /**
@@ -65,20 +66,24 @@ class ApiKeyGenService(apiKeyActor: ActorRef)
    */
   lazy val routes =
     rejectEmptyResponse {
-      path("keygen") {
-        respondWithMediaType(`application/json`) {
-          auth { authPair =>
-            if (authPair._2 == "super") {
+      respondWithMediaType(`application/json`) {
+        auth { authPair =>
+          if (authPair._2 == "super") {
+            pathPrefix("keys") {
+              delete {
+                deleteKeyRoute
+              }
+            } ~
+            pathPrefix("vendorprefixes") {
               post {
                 addRoute
               } ~
               delete {
-                deleteKeysRoute ~
-                deleteKeyRoute
+                deleteKeysRoute
               }
-            } else {
-              complete(Unauthorized, "You do not have sufficient privileges")
             }
+          } else {
+            complete(Unauthorized, "You do not have sufficient privileges")
           }
         }
       }
@@ -87,12 +92,13 @@ class ApiKeyGenService(apiKeyActor: ActorRef)
   /**
    * Route to generate a pair of read and read and write API keys.
    */
+  @Path(value = "/vendorprefixes/{vendorPrefix}")
   @ApiOperation(value = "Generates a pair of read and read/write API keys",
     notes = "Returns a pair of API keys", httpMethod = "POST")
   @ApiImplicitParams(Array(
-    new ApiImplicitParam(name = "vendor_prefix",
+    new ApiImplicitParam(name = "vendorPrefix",
       value = "Vendor prefix of the API keys", required = true,
-      dataType = "string", paramType = "query")
+      dataType = "string", paramType = "path")
   ))
   @ApiResponses(Array(
     new ApiResponse(code = 401,
@@ -106,7 +112,7 @@ class ApiKeyGenService(apiKeyActor: ActorRef)
     new ApiResponse(code = 500, message = "Something went wrong")
   ))
   def addRoute =
-    (anyParam('vendor_prefix) | entity(as[String])) { vendorPrefix =>
+    path(Segment) { vendorPrefix =>
       complete {
         (apiKeyActor ? AddBothKey(vendorPrefix)).mapTo[(StatusCode, String)]
       }
@@ -115,12 +121,13 @@ class ApiKeyGenService(apiKeyActor: ActorRef)
   /**
    * Route to delete every API key having a specific vendor prefix.
    */
+  @Path(value = "/vendorprefixes/{vendorPrefix}")
   @ApiOperation(value = "Deletes every API key having this vendor prefix",
     httpMethod = "DELETE")
   @ApiImplicitParams(Array(
-    new ApiImplicitParam(name = "vendor_prefix",
+    new ApiImplicitParam(name = "vendorPrefix",
       value = "API keys' vendor prefix", required = true, dataType = "string",
-      paramType = "query")
+      paramType = "path")
   ))
   @ApiResponses(Array(
     new ApiResponse(code = 200,
@@ -134,19 +141,20 @@ class ApiKeyGenService(apiKeyActor: ActorRef)
     new ApiResponse(code = 404, message = "Vendor prefix not found")
   ))
   def deleteKeysRoute =
-    anyParam('vendor_prefix) { owner =>
+    path(Segment) { vendorPrefix =>
       complete {
-        (apiKeyActor ? DeleteKeys(owner)).mapTo[(StatusCode, String)]
+        (apiKeyActor ? DeleteKeys(vendorPrefix)).mapTo[(StatusCode, String)]
       }
     }
 
   /**
    * Route to delete a single API key.
    */
+  @Path(value = "/keys/{key}")
   @ApiOperation(value = "Deletes a single API key", httpMethod = "DELETE")
   @ApiImplicitParams(Array(
     new ApiImplicitParam(name = "key", value = "API key to be deleted",
-      required = true, dataType = "string", paramType = "query")
+      required = true, dataType = "string", paramType = "path")
   ))
   @ApiResponses(Array(
     new ApiResponse(code = 200, message = "API key successfully deleted"),
@@ -162,7 +170,7 @@ class ApiKeyGenService(apiKeyActor: ActorRef)
     new ApiResponse(code = 500, message = "Something went wrong")
   ))
   def deleteKeyRoute =
-    anyParam('key) { key =>
+    path(JavaUUID) { key =>
       complete {
         (apiKeyActor ? DeleteKey(key)).mapTo[(StatusCode, String)]
       }

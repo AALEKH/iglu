@@ -15,7 +15,7 @@
 package com.snowplowanalytics.iglu.server
 
 // This project
-import service.{ ApiKeyGenService, SchemaService, ValidationService }
+import service.{ ApiKeyService, SchemaService, ValidationService }
 
 // Scala
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -31,7 +31,7 @@ trait Api extends HttpService with CoreActors with Core {
   lazy val routes =
     pathPrefix("api") {
       pathPrefix("apikeys") {
-        new ApiKeyGenService(apiKeyActor).routes
+        new ApiKeyService(apiKeyActor).routes
       } ~
       pathPrefix("schemas") {
         pathPrefix("validate") {

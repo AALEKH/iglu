@@ -50,7 +50,7 @@ object ApiKeyActor {
    * Message to send in order to delete a key specifying its uuid.
    * @param uid identifier of the API key to be deleted
    */
-  case class DeleteKey(uid: String)
+  case class DeleteKey(uid: UUID)
 
   /**
    * Message to send in order to delete every keys belonging to the specified

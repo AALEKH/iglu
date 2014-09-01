@@ -165,7 +165,7 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
     "for delete" should {
 
       "properly delete an API key" in {
-        val (status, res) = apiKey.delete(readKey)
+        val (status, res) = apiKey.delete(UUID.fromString(readKey))
         status === OK
         res must contain("API key successfully deleted")
 
@@ -178,7 +178,7 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
       }
 
       "return not found if the API key is not in the database" in {
-        val (status, res) = apiKey.delete(readKey)
+        val (status, res) = apiKey.delete(UUID.fromString(readKey))
         status === NotFound
         res must contain("API key not found")
 
@@ -188,12 +188,6 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
             from ${tableName}
             where uid = '${readKey}';""").first === 0
         }
-      }
-
-      "return a 401 if the key is not an uuid" in {
-        val (status, res) = apiKey.delete(notUid)
-        status === Unauthorized
-        res must contain("The API key provided is not an UUID")
       }
     }
 

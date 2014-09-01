@@ -56,7 +56,9 @@ class ApiKeyGenServiceSpec extends Specification
   var writeKey = ""
 
   val start = "/api/apikeys/"
-  val deleteUrl = s"${start}keygen?key="
+
+  val vendorPrefixUrl = s"${start}vendorprefixes/"
+  val keyUrl = s"${start}keys/"
 
   val vendorPrefix = "com.test.dont.take.this"
   val faultyVendorPrefix = "com.test.dont"
@@ -65,11 +67,8 @@ class ApiKeyGenServiceSpec extends Specification
   val vendorPrefix3 = "com.no.idea"
   val faultyVendorPrefix3 = "com.no"
 
-  //postUrl
-  val postUrl1 = s"${start}keygen?vendor_prefix=${vendorPrefix}"
-  val postUrl2 = s"${start}keygen"
-  val conflictingPostUrl1 =
-    s"${start}keygen?vendor_prefix=${faultyVendorPrefix}"
+  val postUrl1 = s"${vendorPrefixUrl}${vendorPrefix}"
+  val conflictingPostUrl1 = s"${vendorPrefixUrl}${faultyVendorPrefix}"
 
   sequential
 
@@ -77,7 +76,7 @@ class ApiKeyGenServiceSpec extends Specification
 
     "for POST requests" should {
 
-      "return a 401 if the key provided is not super with query param" in {
+      "return a 401 if the key provided is not super" in {
         Post(postUrl1) ~> addHeader("api_key", notSuperKey) ~>
         sealRoute(routes) ~> check {
           status === Unauthorized
@@ -86,25 +85,7 @@ class ApiKeyGenServiceSpec extends Specification
         }
       }
 
-      "return a 401 if the key provided is not super with form data" in {
-        Post(postUrl2, FormData(Seq("vendor_prefix" -> vendorPrefix2))) ~>
-        addHeader("api_key", notSuperKey) ~> sealRoute(routes) ~> check {
-          status === Unauthorized
-          responseAs[String] must
-            contain("You do not have sufficient privileges")
-        }
-      }
-
-      "return a 401 if the key provided is not super with body request" in {
-        Post(postUrl2, HttpEntity(`application/json`, vendorPrefix3)) ~>
-        addHeader("api_key", notSuperKey) ~> sealRoute(routes) ~> check {
-          status === Unauthorized
-          responseAs[String] must
-            contain("You do not have sufficient privileges")
-        }
-      }
-
-      "return a 401 if the key provided is not an uuid with query param" in {
+      "return a 401 if the key provided is not an uuid" in {
         Post(postUrl1) ~> addHeader("api_key", notUuidKey) ~>
         sealRoute(routes) ~> check {
           status === Unauthorized
@@ -113,26 +94,8 @@ class ApiKeyGenServiceSpec extends Specification
         }
       }
 
-      "return a 401 if the key provided is not an uuid with form data" in {
-        Post(postUrl2, FormData(Seq("vendor_prefix" -> vendorPrefix2))) ~>
-        addHeader("api_key", notUuidKey) ~> sealRoute(routes) ~> check {
-          status === Unauthorized
-          responseAs[String] must
-            contain("The supplied authentication is invalid")
-        }
-      }
-
-      "return a 401 if the key provided is not an uuid with body request" in {
-        Post(postUrl2, HttpEntity(`application/json`, vendorPrefix3)) ~>
-        addHeader("api_key", notUuidKey) ~> sealRoute(routes) ~> check {
-          status === Unauthorized
-          responseAs[String] must
-            contain("The supplied authentication is invalid")
-        }
-      }
-      
       """return a 200 with the keys if the vendor prefix is not colliding with
-      anyone with query param""" in {
+      anyone""" in {
         Post(postUrl1) ~> addHeader("api_key", superKey) ~>
         sealRoute(routes) ~> check {
           status === Created
@@ -146,27 +109,7 @@ class ApiKeyGenServiceSpec extends Specification
         }
       }
 
-      //to manually delete
-      """return a 200 with the keys if the vendor prefix is not colliding with
-      anyone with form data""" in {
-        Post(postUrl2, FormData(Seq("vendor_prefix" -> vendorPrefix2))) ~>
-        addHeader("api_key", superKey) ~> sealRoute(routes) ~> check {
-          status === Created
-          responseAs[String] must contain("read") and contain("write")
-        }
-      }
-
-      //to manually delete
-      """return a 200 with the keys if the vendor prefix is not colliding with
-      anyone with body request""" in {
-        Post(postUrl2, HttpEntity(`application/json`, vendorPrefix3)) ~>
-        addHeader("api_key", superKey) ~> sealRoute(routes) ~> check {
-          status === Created
-          responseAs[String] must contain("read") and contain("write")
-        }
-      }
-
-      "return a 401 if the vendor prefix already exists with quer param" in {
+      "return a 401 if the vendor prefix already exists" in {
         Post(postUrl1) ~> addHeader("api_key", superKey) ~>
         sealRoute(routes) ~> check {
           status === Unauthorized
@@ -175,26 +118,8 @@ class ApiKeyGenServiceSpec extends Specification
         }
       }
 
-      "return a 401 if the vendor prefix already exists with form data" in {
-        Post(postUrl2, FormData(Seq("vendor_prefix" -> vendorPrefix2))) ~>
-        addHeader("api_key", superKey) ~> sealRoute(routes) ~> check {
-          status === Unauthorized
-          responseAs[String] must
-            contain("This vendor prefix is conflicting with an existing one")
-        }
-      }
-
-      "return a 401 if the vendor prefix already exists with body request" in {
-        Post(postUrl2, HttpEntity(`application/json`, vendorPrefix3)) ~>
-        addHeader("api_key", superKey) ~> sealRoute(routes) ~> check {
-          status === Unauthorized
-          responseAs[String] must
-            contain("This vendor prefix is conflicting with an existing one")
-        }
-      }
-
       """return a 401 if the new vendor prefix is conflicting with an existing
-      one with query param""" in {
+      one""" in {
         Post(conflictingPostUrl1) ~> addHeader("api_key", superKey) ~>
         sealRoute(routes) ~> check {
           status === Unauthorized
@@ -202,32 +127,12 @@ class ApiKeyGenServiceSpec extends Specification
             contain("This vendor prefix is conflicting with an existing one")
         }
       }
-
-      """return a 401 if the new vendor prefix is conflicting with an existing
-      one with form data""" in {
-        Post(postUrl2, FormData(Seq("vendor_prefix" -> faultyVendorPrefix2))) ~>
-        addHeader("api_key", superKey) ~> sealRoute(routes) ~> check {
-          status === Unauthorized
-          responseAs[String] must
-            contain("This vendor prefix is conflicting with an existing one")
-        }
-      }
-
-      """return a 401 if the new vendor prefix is conflicting with an existing
-      one with body request""" in {
-        Post(postUrl2, HttpEntity(`application/json`, faultyVendorPrefix3)) ~>
-        addHeader("api_key", superKey) ~> sealRoute(routes) ~> check {
-          status === Unauthorized
-          responseAs[String] must
-            contain("This vendor prefix is conflicting with an existing one")
-        }
-      }
     }
 
-    "for DELETE requests with key param" should {
+    "for DELETE requests with UUID" should {
 
       "return a 401 if the key provided is not super" in {
-        Delete(deleteUrl + readKey) ~> addHeader("api_key", notSuperKey) ~>
+        Delete(keyUrl + readKey) ~> addHeader("api_key", notSuperKey) ~>
         sealRoute(routes) ~> check {
           status === Unauthorized
           responseAs[String] must contain("You do not have sufficient privileg")
@@ -235,7 +140,7 @@ class ApiKeyGenServiceSpec extends Specification
       }
 
       "return a 404 if the key is not found" in {
-        Delete(deleteUrl + UUID.randomUUID().toString) ~>
+        Delete(keyUrl + UUID.randomUUID().toString) ~>
         addHeader("api_key", superKey) ~> sealRoute(routes) ~> check {
           status === NotFound
           responseAs[String] must contain("API key not found")
@@ -243,7 +148,7 @@ class ApiKeyGenServiceSpec extends Specification
       }
 
       "return a 200 if the key is found and sufficient privileges" in {
-        Delete(deleteUrl + readKey) ~> addHeader("api_key", superKey) ~>
+        Delete(keyUrl + readKey) ~> addHeader("api_key", superKey) ~>
         sealRoute(routes) ~> check {
           status === OK
           responseAs[String] must contain("API key successfully deleted")
@@ -251,7 +156,7 @@ class ApiKeyGenServiceSpec extends Specification
       }
     }
 
-    "for DELETE requests with vendor prefix param" should {
+    "for DELETE requests with vendor prefix" should {
 
       "return a 401 if the key provided is not super" in {
         Delete(postUrl1) ~> addHeader("api_key", notSuperKey) ~>

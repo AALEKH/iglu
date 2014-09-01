@@ -168,8 +168,8 @@ class ApiKeyDAO(val db: Database) extends DAO {
 
         if(statusRead == InternalServerError ||
           statusWrite == InternalServerError) {
-            delete(keyRead)
-            delete(keyWrite)
+            delete(UUID.fromString(keyRead))
+            delete(UUID.fromString(keyWrite))
             (InternalServerError, result(500, "Something went wrong"))
           } else {
             (Created, writePretty(Map("read" -> keyRead, "write" -> keyWrite)))
@@ -184,17 +184,13 @@ class ApiKeyDAO(val db: Database) extends DAO {
    * @param uid the API key's uuid
    * @return a status code and json response pair
    */
-  def delete(uid: String): (StatusCode, String) =
-    if (uid matches uidRegex) {
-      db withDynSession {
-        apiKeys.filter(_.uid === UUID.fromString(uid)).delete match {
-          case 0 => (NotFound, result(404, "API key not found"))
-          case 1 => (OK, result(200, "API key successfully deleted"))
-          case _ => (InternalServerError, result(500, "Something went wrong"))
-        }
+  def delete(uid: UUID): (StatusCode, String) =
+    db withDynSession {
+      apiKeys.filter(_.uid === uid).delete match {
+        case 0 => (NotFound, result(404, "API key not found"))
+        case 1 => (OK, result(200, "API key successfully deleted"))
+        case _ => (InternalServerError, result(500, "Something went wrong"))
       }
-    } else {
-      (Unauthorized, result(401, "The API key provided is not an UUID"))
     }
 
   /**

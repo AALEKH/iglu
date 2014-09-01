@@ -54,7 +54,7 @@ with ActorLogging {
     LoggingContext.fromActorRefFactory)
 
   val swaggerService = new SwaggerHttpService {
-    override def apiTypes = Seq(typeOf[SchemaService], typeOf[ApiKeyGenService],
+    override def apiTypes = Seq(typeOf[SchemaService], typeOf[ApiKeyService],
       typeOf[ValidationService])
     override def apiVersion = "0.2"
     override def baseUrl = "/"

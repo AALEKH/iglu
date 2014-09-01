@@ -115,24 +115,17 @@ class ApiKeyActorSpec extends TestKit(ActorSystem()) with SpecificationLike
     "for DeleteKey" should {
 
       "return a 200 if the key exists" in {
-        val future = key ? DeleteKey(readKey)
+        val future = key ? DeleteKey(UUID.fromString(readKey))
         val Success((status: StatusCode, result: String)) = future.value.get
         status === OK
         result must contain("API key successfully deleted")
       }
 
       "return a 404 if the key doesnt exist" in {
-        val future = key ? DeleteKey(readKey)
+        val future = key ? DeleteKey(UUID.fromString(readKey))
         val Success((status: StatusCode, result: String)) = future.value.get
         status === NotFound
         result must contain("API key not found")
-      }
-
-      "return a 401 if the key is not an uuid" in {
-        val future = key ? DeleteKey(notUuidKey)
-        val Success((status: StatusCode, result: String)) = future.value.get
-        status === Unauthorized
-        result must contain("The API key provided is not an UUID")
       }
     }
 
