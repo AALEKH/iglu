@@ -55,7 +55,7 @@ class SchemaService(schemaActor: ActorRef, apiKeyActor: ActorRef)
    * validates it against the database.
    */
   val authenticator = TokenAuthenticator[(String, String)]("api_key") {
-    key => (apiKeyActor ? GetKey(key)).mapTo[Option[(String, String)]]
+    key => (apiKeyActor ? Auth(key)).mapTo[Option[(String, String)]]
   }
 
   /**

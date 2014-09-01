@@ -53,7 +53,7 @@ class ApiKeyService(apiKeyActor: ActorRef)
    * validates it against the database.
    */
   val authenticator = TokenAuthenticator[(String, String)]("api_key") {
-    key => (apiKeyActor ? GetKey(key)).mapTo[Option[(String, String)]]
+    key => (apiKeyActor ? Auth(key)).mapTo[Option[(String, String)]]
   }
 
   /**
@@ -72,6 +72,9 @@ class ApiKeyService(apiKeyActor: ActorRef)
             pathPrefix("keys") {
               delete {
                 deleteKeyRoute
+              } ~
+              get {
+                readKeyRoute
               }
             } ~
             pathPrefix("vendorprefixes") {
@@ -80,6 +83,9 @@ class ApiKeyService(apiKeyActor: ActorRef)
               } ~
               delete {
                 deleteKeysRoute
+              } ~
+              get {
+                readKeysRoute
               }
             }
           } else {
@@ -148,6 +154,33 @@ class ApiKeyService(apiKeyActor: ActorRef)
     }
 
   /**
+   * Route to retrieve every API key having a specific vendor prefix.
+   */
+  @Path(value = "/vendorprefixes/{vendorPrefix}")
+  @ApiOperation(value = "Retrieves every API key having this vendor prefix",
+    httpMethod = "GET")
+  @ApiImplicitParams(Array(
+    new ApiImplicitParam(name = "vendorPrefix",
+      value = "API keys' vendor prefix", required = true, dataType = "string",
+      paramType = "path")
+  ))
+  @ApiResponses(Array(
+    new ApiResponse(code = 401,
+      message = "You do not have sufficient privileges"),
+    new ApiResponse(code = 401,
+      message = "The supplied authentication is invalid"),
+    new ApiResponse(code = 401, message = """The resource requires
+      authentication, which was not supplied with the request"""),
+    new ApiResponse(code = 404, message = "Vendor prefix not found")
+  ))
+  def readKeysRoute =
+    path(Segment) { vendorPrefix =>
+      complete {
+        (apiKeyActor ? GetKeys(vendorPrefix)).mapTo[(StatusCode, String)]
+      }
+    }
+
+  /**
    * Route to delete a single API key.
    */
   @Path(value = "/keys/{key}")
@@ -173,6 +206,34 @@ class ApiKeyService(apiKeyActor: ActorRef)
     path(JavaUUID) { key =>
       complete {
         (apiKeyActor ? DeleteKey(key)).mapTo[(StatusCode, String)]
+      }
+    }
+
+  /**
+   * Route to retrieve a single API key.
+   */
+  @Path(value = "/keys/{key}")
+  @ApiOperation(value = "Retrieves a single API key", httpMethod = "GET")
+  @ApiImplicitParams(Array(
+    new ApiImplicitParam(name = "key", value = "API key to be retrieved",
+      required = true, dataType = "string", paramType = "path")
+  ))
+  @ApiResponses(Array(
+    new ApiResponse(code = 401,
+      message = "You do not have sufficient privileges"),
+    new ApiResponse(code = 401,
+      message = "The supplied authentication is invalid"),
+    new ApiResponse(code = 401, message = """The resource requires
+      authentication, which was not supplied with the request"""),
+    new ApiResponse(code = 401,
+      message = "The API key provided is not and UUID"),
+    new ApiResponse(code = 404, message = "API key not found"),
+    new ApiResponse(code = 500, message = "Something went wrong")
+  ))
+  def readKeyRoute =
+    path(JavaUUID) { key =>
+      complete {
+        (apiKeyActor ? GetKey(key)).mapTo[(StatusCode, String)]
       }
     }
 }

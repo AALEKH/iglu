@@ -114,7 +114,7 @@ class SchemaDAO(val db: Database) extends DAO {
   //Object used to access the table
   val schemas = TableQuery[Schemas]
 
-  //Case classes for json formatting
+  //Case classes for JSON formatting
   case class MetadataContainer(metadata: Metadata)
   case class Metadata(location: String, createdAt: String, updatedAt: String,
     permissions: Permission)

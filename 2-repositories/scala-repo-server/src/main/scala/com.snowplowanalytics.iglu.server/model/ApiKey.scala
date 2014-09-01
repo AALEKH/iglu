@@ -78,6 +78,10 @@ class ApiKeyDAO(val db: Database) extends DAO {
   //Object used to access the table
   val apiKeys = TableQuery[ApiKeys]
 
+  //Case classes for JSON formatting
+  case class ResApiKey(vendorPrefix: String, key: String, metadata: Metadata)
+  case class Metadata(permission: String, createdAt: String)
+
   /**
    * Creates the apikeys table.
    */
@@ -97,19 +101,19 @@ class ApiKeyDAO(val db: Database) extends DAO {
   }
 
   /**
-   * Gets an API key from an uuid.
-   * @param uid the API key's uuid
-   * @return an option containing a (vendorPrefix, permission) pair
+   * Gets the vendor prefix and permission associated with an API key.
+   * @param uid the API key's UUID
+   * @return an option containing a (vendor prefix, permission) pair
    */
   def get(uid: String): Option[(String, String)] = {
     if (uid matches uidRegex) {
-      val uuid = UUID.fromString(uid)
       db withDynSession {
         val l: List[(String, String)] =
           apiKeys
-            .filter(_.uid === uuid)
+            .filter(_.uid === UUID.fromString(uid))
             .map(k => (k.vendorPrefix, k.permission))
             .list
+
         if (l.length == 1) {
           Some(l(0))
         } else {
@@ -122,60 +126,52 @@ class ApiKeyDAO(val db: Database) extends DAO {
   }
 
   /**
-   * Validates that a new vendorPrefix is not conflicting with an existing one
-   * (same prefix).
-   * @param vendorPrefix vendorPrefix of the new API keys being validated
-   * @return a boolean indicating whether or not we allow this new API key
-   * vendor prefix
+   * Gets the vendor prefix associated with an uuid.
+   * @param uid the API key's uuid
+   * @return a status code and json pair containing the vendor prefix associated
+   * with this API key
    */
-  private def validate(vendorPrefix: String): Boolean =
+  def get(uid: UUID): (StatusCode, String) =
     db withDynSession {
-      apiKeys
-        .map(_.vendorPrefix)
-        .list
-        .filter(o => o.startsWith(vendorPrefix) || vendorPrefix.startsWith(o) ||
-          o == vendorPrefix)
-        .length == 0
-    }
+      val l: List[ResApiKey] =
+        (for {
+          k <- apiKeys if k.uid === uid
+        } yield k)
+          .list
+          .map(k => ResApiKey(k.vendorPrefix, k.uid.toString,
+            Metadata(k.permission,
+              k.createdAt.toString("MM/dd/yyyy HH:mm:ss"))))
 
-  /**
-   * Adds a new API key.
-   * @param vendorPrefix vendorPrefix of the new API key
-   * @param permission permission of the new API key
-   * @return a status code and a json response pair
-   */
-  private def add(vendorPrefix: String, permission: String):
-  (StatusCode, String) =
-    db withDynSession {
-      val uid = UUID.randomUUID()
-      apiKeys.insert(
-        ApiKey(uid, vendorPrefix, permission, new LocalDateTime())) match {
-          case 0 => (InternalServerError, "Something went wrong")
-          case n => (OK, uid.toString)
-        }
-    }
-
-  /**
-   * Adds both read and write API keys for a vendor prefix after validating it.
-   * @param vendorPrefix vendorPrefix of the new pair of keys
-   * @returns a status code and a json containing the pair of API keys.
-   */
-  def addReadWrite(vendorPrefix: String): (StatusCode, String) =
-    db withDynSession {
-      if (validate(vendorPrefix)) {
-        val (statusRead, keyRead) = add(vendorPrefix, "read")
-        val (statusWrite, keyWrite) = add(vendorPrefix, "write")
-
-        if(statusRead == InternalServerError ||
-          statusWrite == InternalServerError) {
-            delete(UUID.fromString(keyRead))
-            delete(UUID.fromString(keyWrite))
-            (InternalServerError, result(500, "Something went wrong"))
-          } else {
-            (Created, writePretty(Map("read" -> keyRead, "write" -> keyWrite)))
-          }
+      if (l.length == 1) {
+        (OK, writePretty(l(0)))
+      } else if (l.length == 0) {
+        (NotFound, result(404, "API key not found"))
       } else {
-        (Unauthorized, "This vendor prefix is conflicting with an existing one")
+        (InternalServerError, result(500, "Something went wrong"))
+      }
+    }
+
+  /**
+   * Gets every API key associated with the given vendor prefix.
+   * @param vendorPrefix vendor prefix of the API keys to be retrieved
+   * @return a status code and json pair containing the list of all API keys
+   * having this vendor prefix
+   */
+  def getFromVendorPrefix(vendorPrefix: String): (StatusCode, String) =
+    db withDynSession {
+      val l: List[ResApiKey] =
+        (for {
+          k <- apiKeys if k.vendorPrefix === vendorPrefix
+        } yield k)
+          .list
+          .map(k => ResApiKey(k.vendorPrefix, k.uid.toString,
+            Metadata(k.permission,
+              k.createdAt.toString("MM/dd/yyyy HH:mm:ss"))))
+
+      if (l.length == 0) {
+        (NotFound, result(404, "Vendor prefix not found"))
+      } else {
+        (OK, writePretty(l))
       }
     }
 
@@ -205,5 +201,63 @@ class ApiKeyDAO(val db: Database) extends DAO {
         case 1 => (OK, result(200, "API key deleted for " + vendorPrefix))
         case n => (OK, result(200, "API keys deleted for " + vendorPrefix))
       }
+    }
+
+  /**
+   * Adds both read and write API keys for a vendor prefix after validating it.
+   * @param vendorPrefix vendorPrefix of the new pair of keys
+   * @returns a status code and a json containing the pair of API keys.
+   */
+  def addReadWrite(vendorPrefix: String): (StatusCode, String) =
+    db withDynSession {
+      if (validate(vendorPrefix)) {
+        val (statusRead, keyRead) = add(vendorPrefix, "read")
+        val (statusWrite, keyWrite) = add(vendorPrefix, "write")
+
+        if(statusRead == InternalServerError ||
+          statusWrite == InternalServerError) {
+            delete(UUID.fromString(keyRead))
+            delete(UUID.fromString(keyWrite))
+            (InternalServerError, result(500, "Something went wrong"))
+          } else {
+            (Created, writePretty(Map("read" -> keyRead, "write" -> keyWrite)))
+          }
+      } else {
+        (Unauthorized, "This vendor prefix is conflicting with an existing one")
+      }
+    }
+
+  /**
+   * Adds a new API key.
+   * @param vendorPrefix vendorPrefix of the new API key
+   * @param permission permission of the new API key
+   * @return a status code and a json response pair
+   */
+  private def add(vendorPrefix: String, permission: String):
+  (StatusCode, String) =
+    db withDynSession {
+      val uid = UUID.randomUUID()
+      apiKeys.insert(
+        ApiKey(uid, vendorPrefix, permission, new LocalDateTime())) match {
+          case 0 => (InternalServerError, "Something went wrong")
+          case n => (OK, uid.toString)
+        }
+    }
+
+  /**
+   * Validates that a new vendorPrefix is not conflicting with an existing one
+   * (same prefix).
+   * @param vendorPrefix vendorPrefix of the new API keys being validated
+   * @return a boolean indicating whether or not we allow this new API key
+   * vendor prefix
+   */
+  private def validate(vendorPrefix: String): Boolean =
+    db withDynSession {
+      apiKeys
+        .map(_.vendorPrefix)
+        .list
+        .filter(o => o.startsWith(vendorPrefix) || vendorPrefix.startsWith(o) ||
+          o == vendorPrefix)
+        .length == 0
     }
 }

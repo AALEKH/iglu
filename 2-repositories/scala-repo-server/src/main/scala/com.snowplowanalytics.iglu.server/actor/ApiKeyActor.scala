@@ -36,15 +36,21 @@ object ApiKeyActor {
    * key exists.
    * @param uid identifier for the API key to be retrieved
    */
-  case class GetKey(uid: String)
+  case class Auth(uid: String)
 
   /**
-   * Message to send in order to add a (write, read) pair of keys for the
-   * specified owner if it is not conflicting with an existing one.
-   * @param vendorPrefix the API keys to be generated will have this vendor
-   * prefix
+   * Message to send in order to retrieve information about the API key from its
+   * UUID.
+   * @param uid API key's UUID
    */
-  case class AddBothKey(vendorPrefix: String)
+  case class GetKey(uid: UUID)
+
+  /**
+   * Message to send in order to retrieve information about the API keys having
+   * the specified vendor prefix.
+   * @param vendorPrefix vendor prefix of the API keys to be retrieved
+   */
+  case class GetKeys(vendorPrefix: String)
 
   /**
    * Message to send in order to delete a key specifying its uuid.
@@ -58,6 +64,14 @@ object ApiKeyActor {
    * @param vendorPrefix the API keys having this vendor prefix will be deleted
    */
   case class DeleteKeys(vendorPrefix: String)
+
+  /**
+   * Message to send in order to add a (write, read) pair of keys for the
+   * specified owner if it is not conflicting with an existing one.
+   * @param vendorPrefix the API keys to be generated will have this vendor
+   * prefix
+   */
+  case class AddBothKey(vendorPrefix: String)
 }
 
 /**
@@ -75,13 +89,18 @@ class ApiKeyActor extends Actor {
    */
   def receive = {
 
+    case Auth(uid) => sender ! apiKey.get(uid)
+
     case GetKey(uid) => sender ! apiKey.get(uid)
 
-    case AddBothKey(vendorPrefix) => sender ! apiKey.addReadWrite(vendorPrefix)
+    case GetKeys(vendorPrefix) =>
+      sender ! apiKey.getFromVendorPrefix(vendorPrefix)
 
     case DeleteKey(uid) => sender ! apiKey.delete(uid)
 
     case DeleteKeys(vendorPrefix) =>
       sender ! apiKey.deleteFromVendorPrefix(vendorPrefix)
+
+    case AddBothKey(vendorPrefix) => sender ! apiKey.addReadWrite(vendorPrefix)
   }
 }
