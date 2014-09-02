@@ -79,7 +79,7 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
 
     "for addReadWrite" should {
 
-      "add the API keys properly" in {
+      "return a 201 and add the API keys properly" in {
         val (status, res) = apiKey.addReadWrite(vendorPrefix)
         val map = parse(res).extract[Map[String, String]]
 
@@ -105,8 +105,8 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
         }
       }
 
-      "not add API keys if the vendor prefix is conflicting with an existing" +
-      "one" in {
+      "return a 401 and not add API keys if the vendor prefix is conflicting" +
+      "with an existing one" in {
         val (status, res) = apiKey.addReadWrite(faultyVendorPrefix)
         status === Unauthorized
         res must
@@ -121,7 +121,7 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
       }
     }
 
-    "for get" should {
+    "for get (auth)" should {
 
       "properly retrieve the API key" in {
         apiKey.get(readKey) match {
@@ -162,9 +162,69 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
       }
     }
 
+    "for get" should {
+
+      "return a 200 and info about the api key" in {
+        val (status, res) = apiKey.get(UUID.fromString(readKey))
+        status === OK
+        res must contain(readKey) and contain("read") and contain(vendorPrefix)
+
+        database withDynSession {
+          Q.queryNA[Int](
+            s"""select count(*)
+            from ${tableName}
+            where uid = '${readKey}';""").first === 1
+        }
+      }
+
+      "return a 404 if the key is not in the db" in {
+        val uid = UUID.randomUUID
+        val (status, res) = apiKey.get(uid)
+        status === NotFound
+        res must contain("API key not found")
+
+        database withDynSession {
+          Q.queryNA[Int](
+            s"""select count(*)
+            from ${tableName}
+            where uid = '${uid.toString}';""").first === 0
+        }
+      }
+    }
+
+    "for getFromVendorPrefix" should {
+
+      "return a 200 and info about the api keys" in {
+        val (status, res) = apiKey.getFromVendorPrefix(vendorPrefix)
+        status === OK
+        res must contain(readKey) and contain(writeKey) and
+          contain(vendorPrefix)
+
+        database withDynSession {
+          Q.queryNA[Int](
+            s"""select count(*)
+            from ${tableName}
+            where vendor_prefix = '${vendorPrefix}';""").first === 2
+        }
+      }
+
+      "return a 404 if there are no api keys associated with this vendor" in {
+        val (status, res) = apiKey.getFromVendorPrefix(faultyVendorPrefix)
+        status === NotFound
+        res must contain("Vendor prefix not found")
+
+        database withDynSession {
+          Q.queryNA[Int](
+            s"""select count(*)
+            from ${tableName}
+            where vendor_prefix = '${faultyVendorPrefix}';""").first === 0
+        }
+      }
+    }
+
     "for delete" should {
 
-      "properly delete an API key" in {
+      "return a 200 and delete an API key" in {
         val (status, res) = apiKey.delete(UUID.fromString(readKey))
         status === OK
         res must contain("API key successfully deleted")
@@ -177,7 +237,7 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
         }
       }
 
-      "return not found if the API key is not in the database" in {
+      "return a 404 if the API key is not in the database" in {
         val (status, res) = apiKey.delete(UUID.fromString(readKey))
         status === NotFound
         res must contain("API key not found")
@@ -193,7 +253,7 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
 
     "for deleteFromVendorPrefix" should {
 
-      "properly delete API keys associated with a vendor prefix" in {
+      "return a 200 and delete API keys associated with a vendor prefix" in {
         val (status, res) = apiKey.deleteFromVendorPrefix(vendorPrefix)
         status === OK
         res must contain("API key deleted for " + vendorPrefix)

@@ -36,7 +36,7 @@ import StatusCodes._
 import MediaTypes._
 import spray.testkit.Specs2RouteTest
 
-class ApiKeyGenServiceSpec extends Specification
+class ApiKeyServiceSpec extends Specification
   with Api with Specs2RouteTest with NoTimeConversions {
 
   def actorRefFactory = system
@@ -67,9 +67,6 @@ class ApiKeyGenServiceSpec extends Specification
   val vendorPrefix3 = "com.no.idea"
   val faultyVendorPrefix3 = "com.no"
 
-  val postUrl1 = s"${vendorPrefixUrl}${vendorPrefix}"
-  val conflictingPostUrl1 = s"${vendorPrefixUrl}${faultyVendorPrefix}"
-
   sequential
 
   "ApiKeyGenService" should {
@@ -77,8 +74,8 @@ class ApiKeyGenServiceSpec extends Specification
     "for POST requests" should {
 
       "return a 401 if the key provided is not super" in {
-        Post(postUrl1) ~> addHeader("api_key", notSuperKey) ~>
-        sealRoute(routes) ~> check {
+        Post(vendorPrefixUrl + vendorPrefix) ~>
+        addHeader("api_key", notSuperKey) ~> sealRoute(routes) ~> check {
           status === Unauthorized
           responseAs[String] must
             contain("You do not have sufficient privileges")
@@ -86,8 +83,8 @@ class ApiKeyGenServiceSpec extends Specification
       }
 
       "return a 401 if the key provided is not an uuid" in {
-        Post(postUrl1) ~> addHeader("api_key", notUuidKey) ~>
-        sealRoute(routes) ~> check {
+        Post(vendorPrefixUrl + vendorPrefix) ~>
+        addHeader("api_key", notUuidKey) ~> sealRoute(routes) ~> check {
           status === Unauthorized
           responseAs[String] must
             contain("The supplied authentication is invalid")
@@ -96,8 +93,8 @@ class ApiKeyGenServiceSpec extends Specification
 
       """return a 200 with the keys if the vendor prefix is not colliding with
       anyone""" in {
-        Post(postUrl1) ~> addHeader("api_key", superKey) ~>
-        sealRoute(routes) ~> check {
+        Post(vendorPrefixUrl + vendorPrefix) ~>
+        addHeader("api_key", superKey) ~> sealRoute(routes) ~> check {
           status === Created
           val response = responseAs[String]
           response must contain("read") and contain("write")
@@ -110,8 +107,8 @@ class ApiKeyGenServiceSpec extends Specification
       }
 
       "return a 401 if the vendor prefix already exists" in {
-        Post(postUrl1) ~> addHeader("api_key", superKey) ~>
-        sealRoute(routes) ~> check {
+        Post(vendorPrefixUrl + vendorPrefix) ~>
+        addHeader("api_key", superKey) ~> sealRoute(routes) ~> check {
           status === Unauthorized
           responseAs[String] must
             contain("This vendor prefix is conflicting with an existing one")
@@ -120,11 +117,70 @@ class ApiKeyGenServiceSpec extends Specification
 
       """return a 401 if the new vendor prefix is conflicting with an existing
       one""" in {
-        Post(conflictingPostUrl1) ~> addHeader("api_key", superKey) ~>
-        sealRoute(routes) ~> check {
+        Post(vendorPrefixUrl + faultyVendorPrefix) ~>
+        addHeader("api_key", superKey) ~> sealRoute(routes) ~> check {
           status === Unauthorized
           responseAs[String] must
             contain("This vendor prefix is conflicting with an existing one")
+        }
+      }
+    }
+
+    "for GET requests with UUID" should {
+
+      "return a 401 if the key provided is not super" in {
+        Get(keyUrl + readKey) ~> addHeader("api_key", notSuperKey) ~>
+        sealRoute(routes) ~> check {
+          status === Unauthorized
+          responseAs[String] must
+            contain("You do not have sufficient privileges")
+        }
+      }
+
+      "return a 404 if the key is not found" in {
+        Get(keyUrl + UUID.randomUUID.toString) ~>
+        addHeader("api_key", superKey) ~> sealRoute(routes) ~> check {
+          status === NotFound
+          responseAs[String] must contain("API key not found")
+        }
+      }
+
+      "return a 200 if the key is found and sufficient privileges" in {
+        Get(keyUrl + readKey) ~> addHeader("api_key", superKey) ~>
+        sealRoute(routes) ~> check {
+          status === OK
+          responseAs[String] must contain(readKey) and contain("read") and
+            contain(vendorPrefix)
+        }
+      }
+    }
+
+    "for GET requests with vendor prefix" should {
+
+      "return a 401 if the key provided is not super" in {
+        Get(vendorPrefixUrl + vendorPrefix) ~>
+        addHeader("api_key", notSuperKey) ~> sealRoute(routes) ~> check {
+          status === Unauthorized
+          responseAs[String] must
+            contain("You do not have sufficient privileges")
+        }
+      }
+
+      "return a 200 if there are keys associated with this vendor prefix" in {
+        Get(vendorPrefixUrl + vendorPrefix) ~>
+        addHeader("api_key", superKey) ~> sealRoute(routes) ~> check {
+          status === OK
+          responseAs[String] must contain(readKey) and contain(writeKey) and
+            contain(vendorPrefix)
+        }
+      }
+
+      "return a 404 if there are no keys associated with this vendor prefix" in
+      {
+        Get(vendorPrefixUrl + faultyVendorPrefix) ~>
+        addHeader("api_key", superKey) ~> sealRoute(routes) ~> check {
+          status === NotFound
+          responseAs[String] must contain("Vendor prefix not found")
         }
       }
     }
@@ -135,12 +191,13 @@ class ApiKeyGenServiceSpec extends Specification
         Delete(keyUrl + readKey) ~> addHeader("api_key", notSuperKey) ~>
         sealRoute(routes) ~> check {
           status === Unauthorized
-          responseAs[String] must contain("You do not have sufficient privileg")
+          responseAs[String] must
+            contain("You do not have sufficient privileges")
         }
       }
 
       "return a 404 if the key is not found" in {
-        Delete(keyUrl + UUID.randomUUID().toString) ~>
+        Delete(keyUrl + UUID.randomUUID.toString) ~>
         addHeader("api_key", superKey) ~> sealRoute(routes) ~> check {
           status === NotFound
           responseAs[String] must contain("API key not found")
@@ -159,16 +216,17 @@ class ApiKeyGenServiceSpec extends Specification
     "for DELETE requests with vendor prefix" should {
 
       "return a 401 if the key provided is not super" in {
-        Delete(postUrl1) ~> addHeader("api_key", notSuperKey) ~>
-        sealRoute(routes) ~> check {
+        Delete(vendorPrefixUrl + vendorPrefix) ~>
+        addHeader("api_key", notSuperKey) ~> sealRoute(routes) ~> check {
           status === Unauthorized
-          responseAs[String] must contain("You do not have sufficient privileg")
+          responseAs[String] must
+            contain("You do not have sufficient privileges")
         }
       }
 
       "return a 200 if there are keys associated with this vendor prefix" in {
-        Delete(postUrl1) ~> addHeader("api_key", superKey) ~>
-        sealRoute(routes) ~> check {
+        Delete(vendorPrefixUrl + vendorPrefix) ~>
+        addHeader("api_key", superKey) ~> sealRoute(routes) ~> check {
           status === OK
           responseAs[String] must contain("API key deleted for ")
         }
@@ -176,8 +234,8 @@ class ApiKeyGenServiceSpec extends Specification
 
       "return a 404 if there are no keys associated with this vendor prefix" in
       {
-        Delete(postUrl1) ~> addHeader("api_key", superKey) ~>
-        sealRoute(routes) ~> check {
+        Delete(vendorPrefixUrl + vendorPrefix) ~>
+        addHeader("api_key", superKey) ~> sealRoute(routes) ~> check {
           status === NotFound
           responseAs[String] must contain("Vendor prefix not found")
         }

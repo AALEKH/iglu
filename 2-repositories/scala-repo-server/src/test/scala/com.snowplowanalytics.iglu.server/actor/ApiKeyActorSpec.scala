@@ -89,10 +89,10 @@ class ApiKeyActorSpec extends TestKit(ActorSystem()) with SpecificationLike
       }
     }
 
-    "for GetKey" should {
+    "for Auth" should {
 
       "return a valid (vendor prefix, permission) pair" in {
-        val future = key ? GetKey(readKey)
+        val future = key ? Auth(readKey)
         val Success(Some((vp: String, permission: String))) =
           future.value.get
         vp must contain(vendorPrefix)
@@ -100,15 +100,52 @@ class ApiKeyActorSpec extends TestKit(ActorSystem()) with SpecificationLike
       }
 
       "return None if the API key is not found" in {
-        val future = key ? GetKey(UUID.randomUUID.toString)
+        val future = key ? Auth(UUID.randomUUID.toString)
         val Success(None) = future.value.get
         success
       }
 
       "return None if the API key is not an uuid" in {
-        val future = key ? GetKey(notUuidKey)
+        val future = key ? Auth(notUuidKey)
         val Success(None) = future.value.get
         success
+      }
+    }
+
+    "for GetKey" should {
+
+      "return a 200 if the key exists" in {
+        val future = key ? GetKey(UUID.fromString(readKey))
+        val Success((status: StatusCode, result: String)) = future.value.get
+        status === OK
+        result must contain(readKey) and contain("read") and
+          contain(vendorPrefix)
+      }
+
+      "return a 404 if the key doesnt exist" in {
+        val future = key ? GetKey(UUID.randomUUID)
+        val Success((status: StatusCode, result: String)) = future.value.get
+        status === NotFound
+        result must contain("API key not found")
+      }
+    }
+
+    "for GetKeys" should {
+
+      "return a 200 if there are keys associated with this vendor prefix" in {
+        val future = key ? GetKeys(vendorPrefix)
+        val Success((status: StatusCode, result: String)) = future.value.get
+        status === OK
+        result must contain(readKey) and contain(writeKey) and
+          contain(vendorPrefix)
+      }
+
+      "return a 404 if there are no API keys associated with this vendor" +
+      "prefix" in {
+        val future = key ? GetKeys(faultyVendorPrefix)
+        val Success((status: StatusCode, result: String)) = future.value.get
+        status === NotFound
+        result must contain("Vendor prefix not found")
       }
     }
 
