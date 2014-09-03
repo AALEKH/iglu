@@ -41,6 +41,10 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
 
   val apiKey = new ApiKeyDAO(database)
 
+  //case classes for json formatting
+  case class ResApiKey(vendorPrefix: String, key: String, metadata: Metadata)
+  case class Metadata(permission: String, createdAt: String)
+  
   implicit val formats = DefaultFormats
 
   val tableName = "apikeys"
@@ -81,10 +85,16 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
 
       "return a 201 and add the API keys properly" in {
         val (status, res) = apiKey.addReadWrite(vendorPrefix)
-        val map = parse(res).extract[Map[String, String]]
+        val list = parse(res).extract[List[ResApiKey]]
 
-        readKey = map getOrElse("read", "")
-        writeKey = map getOrElse("write", "")
+        readKey = list.find(k => k.metadata.permission == "read") match {
+          case Some(k) => k.key
+          case None => ""
+        }
+        writeKey = list.find(k => k.metadata.permission == "write") match {
+          case Some(k) => k.key
+          case None => ""
+        }
 
         status === Created
         res must contain("read") and contain("write")

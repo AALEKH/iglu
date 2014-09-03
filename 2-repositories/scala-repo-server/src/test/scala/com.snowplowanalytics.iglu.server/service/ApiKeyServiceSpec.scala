@@ -45,6 +45,10 @@ class ApiKeyServiceSpec extends Specification
 
   implicit val formats = DefaultFormats
 
+  //case classes for json formatting
+  case class ResApiKey(vendorPrefix: String, key: String, metadata: Metadata)
+  case class Metadata(permission: String, createdAt: String)
+
   val uidRegex =
     "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}".r
 
@@ -98,9 +102,15 @@ class ApiKeyServiceSpec extends Specification
           status === Created
           val response = responseAs[String]
           response must contain("read") and contain("write")
-          val map = parse(response).extract[Map[String, String]]
-          readKey = map getOrElse("read", "")
-          writeKey = map getOrElse("write", "")
+          val list = parse(response).extract[List[ResApiKey]]
+          readKey = list.find(k => k.metadata.permission == "read") match {
+            case Some(k) => k.key
+            case None => ""
+          }
+          writeKey = list.find(k => k.metadata.permission == "write") match {
+            case Some(k) => k.key
+            case None => ""
+          }
           readKey must beMatching(uidRegex)
           writeKey must beMatching(uidRegex)
         }

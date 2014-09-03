@@ -53,6 +53,10 @@ class ApiKeyActorSpec extends TestKit(ActorSystem()) with SpecificationLike
 
   val key = TestActorRef(new ApiKeyActor)
 
+  //case classes for json formatting
+  case class ResApiKey(vendorPrefix: String, key: String, metadata: Metadata)
+  case class Metadata(permission: String, createdAt: String)
+
   implicit val formats = DefaultFormats
 
   val vendorPrefix = "com.actor.unit.test"
@@ -73,9 +77,15 @@ class ApiKeyActorSpec extends TestKit(ActorSystem()) with SpecificationLike
         val future = key ? AddBothKey(vendorPrefix)
         val Success((status: StatusCode, result: String)) = future.value.get
 
-        val map = parse(result).extract[Map[String, String]]
-        readKey = map getOrElse("read", "")
-        writeKey = map getOrElse("write", "")
+        val list = parse(result).extract[List[ResApiKey]]
+        readKey = list.find(k => k.metadata.permission == "read") match {
+          case Some(k) => k.key
+          case None => ""
+        }
+        writeKey = list.find(k => k.metadata.permission == "write") match {
+          case Some(k) => k.key
+          case None => ""
+        }
         status === Created
         result must contain("read") and contain("write")
       }

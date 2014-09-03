@@ -220,7 +220,12 @@ class ApiKeyDAO(val db: Database) extends DAO {
             delete(UUID.fromString(keyWrite))
             (InternalServerError, result(500, "Something went wrong"))
           } else {
-            (Created, writePretty(Map("read" -> keyRead, "write" -> keyWrite)))
+            (Created, writePretty(List(
+              ResApiKey(vendorPrefix, keyRead, Metadata("read",
+                new LocalDateTime().toString("MM/dd/yyyy HH:mm:ss"))),
+              ResApiKey(vendorPrefix, keyWrite, Metadata("write",
+                new LocalDateTime().toString("MM/dd/yyyy HH:mm:ss")))
+            )))
           }
       } else {
         (Unauthorized, "This vendor prefix is conflicting with an existing one")
