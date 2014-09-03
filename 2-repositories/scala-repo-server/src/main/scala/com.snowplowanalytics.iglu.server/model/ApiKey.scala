@@ -56,7 +56,8 @@ class ApiKeyDAO(val db: Database) extends DAO {
     uid: UUID,
     vendorPrefix: String,
     permission: String,
-    createdAt: LocalDateTime
+    createdAt: LocalDateTime,
+    updatedAt: LocalDateTime
   )
 
   /**
@@ -70,8 +71,10 @@ class ApiKeyDAO(val db: Database) extends DAO {
       O.DBType("varchar(20)"), O.NotNull, O.Default[String]("read"))
     def createdAt = column[LocalDateTime]("createdat", O.DBType("timestamp"),
       O.NotNull)
+    def updatedAt = column[LocalDateTime]("updatedat", O.DBType("timestamp"),
+      O.NotNull)
 
-    def * = (uid, vendorPrefix, permission, createdAt) <>
+    def * = (uid, vendorPrefix, permission, createdAt, updatedAt) <>
       (ApiKey.tupled, ApiKey.unapply)
   }
 
@@ -80,7 +83,7 @@ class ApiKeyDAO(val db: Database) extends DAO {
 
   //Case classes for JSON formatting
   case class ResApiKey(vendorPrefix: String, key: String, metadata: Metadata)
-  case class Metadata(permission: String, createdAt: String)
+  case class Metadata(permission: String, createdAt: String, updatedAt: String)
 
   /**
    * Creates the apikeys table.
@@ -140,7 +143,8 @@ class ApiKeyDAO(val db: Database) extends DAO {
           .list
           .map(k => ResApiKey(k.vendorPrefix, k.uid.toString,
             Metadata(k.permission,
-              k.createdAt.toString("MM/dd/yyyy HH:mm:ss"))))
+              k.createdAt.toString("MM/dd/yyyy HH:mm:ss"),
+              k.updatedAt.toString("MM/dd/yyyy HH:mm:ss"))))
 
       if (l.length == 1) {
         (OK, writePretty(l(0)))
@@ -166,7 +170,8 @@ class ApiKeyDAO(val db: Database) extends DAO {
           .list
           .map(k => ResApiKey(k.vendorPrefix, k.uid.toString,
             Metadata(k.permission,
-              k.createdAt.toString("MM/dd/yyyy HH:mm:ss"))))
+              k.createdAt.toString("MM/dd/yyyy HH:mm:ss"),
+              k.updatedAt.toString("MM/dd/yyyy HH:mm:ss"))))
 
       if (l.length == 0) {
         (NotFound, result(404, "Vendor prefix not found"))
@@ -222,8 +227,10 @@ class ApiKeyDAO(val db: Database) extends DAO {
           } else {
             (Created, writePretty(List(
               ResApiKey(vendorPrefix, keyRead, Metadata("read",
+                new LocalDateTime().toString("MM/dd/yyyy HH:mm:ss"),
                 new LocalDateTime().toString("MM/dd/yyyy HH:mm:ss"))),
               ResApiKey(vendorPrefix, keyWrite, Metadata("write",
+                new LocalDateTime().toString("MM/dd/yyyy HH:mm:ss"),
                 new LocalDateTime().toString("MM/dd/yyyy HH:mm:ss")))
             )))
           }
@@ -242,8 +249,8 @@ class ApiKeyDAO(val db: Database) extends DAO {
   (StatusCode, String) =
     db withDynSession {
       val uid = UUID.randomUUID()
-      apiKeys.insert(
-        ApiKey(uid, vendorPrefix, permission, new LocalDateTime())) match {
+      apiKeys.insert(ApiKey(uid, vendorPrefix, permission, new LocalDateTime,
+        new LocalDateTime)) match {
           case 0 => (InternalServerError, "Something went wrong")
           case n => (OK, uid.toString)
         }
@@ -261,8 +268,8 @@ class ApiKeyDAO(val db: Database) extends DAO {
       apiKeys
         .map(_.vendorPrefix)
         .list
-        .filter(o => o.startsWith(vendorPrefix) || vendorPrefix.startsWith(o) ||
-          o == vendorPrefix)
+        .filter(v => v.startsWith(vendorPrefix) || vendorPrefix.startsWith(v) ||
+          v == vendorPrefix)
         .length == 0
     }
 }
