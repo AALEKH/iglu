@@ -438,8 +438,8 @@ class SchemaServiceSpec extends Specification
           }
         }
 
-        """return a 401 if the owner of the API key is not a prefix of the
-          schema's vendor""" in {
+        "return a 401 if the vendor prefix of the API key is not a prefix of" +
+        " the schema's vendor" in {
             Get(url) ~> addHeader("api_key", wrongVendorKey) ~>
               sealRoute(routes) ~> check {
                 status === Unauthorized
@@ -540,7 +540,7 @@ class SchemaServiceSpec extends Specification
           }
         }
 
-        "return a 401 if the owner is not a prefix of the vendor" in {
+        "return a 401 if the vendor prefix is not a prefix of the vendor" in {
           Get(vendorUrl) ~> addHeader("api_key", wrongVendorKey) ~> routes ~>
           check {
             status === Unauthorized
@@ -633,7 +633,7 @@ class SchemaServiceSpec extends Specification
           }
         }
 
-        "return a 401 if the owner is not a prefix of the vendor" in {
+        "return a 401 if the vendor prefix is not a prefix of the vendor" in {
           Get(nameUrl) ~> addHeader("api_key", wrongVendorKey) ~> routes ~>
           check {
             status === Unauthorized
@@ -730,7 +730,7 @@ class SchemaServiceSpec extends Specification
           }
         }
 
-        "return a 401 if the owner is not a prefix of the vendor" in {
+        "return a 401 if the vendor prefix is not a prefix of the vendor" in {
           Get(formatUrl) ~> addHeader("api_key", wrongVendorKey) ~> routes ~>
           check {
             status === Unauthorized
@@ -920,7 +920,7 @@ class SchemaServiceSpec extends Specification
         }
       }
 
-      """return a 401 if the owner of the API key is not a prefix of the
+      """return a 401 if the vendor prefix of the API key is not a prefix of the
       schema's vendor with query param""" in {
         Post(postUrl6) ~> addHeader("api_key", wrongVendorKey) ~>
         sealRoute(routes) ~> check {
@@ -930,7 +930,7 @@ class SchemaServiceSpec extends Specification
         }
       }
 
-      """return a 401 if the owner of the API key is not a prefix of the
+      """return a 401 if the vendor prefix of the API key is not a prefix of the
       schema's vendor with form data""" in {
         Post(postUrl3, FormData(Seq("schema" -> validSchema))) ~>
         addHeader("api_key", wrongVendorKey) ~> sealRoute(routes) ~> check {
@@ -940,7 +940,7 @@ class SchemaServiceSpec extends Specification
         }
       }
 
-      """return a 401 if the owner of the API key is not a prefix of the
+      """return a 401 if the vendor prefix of the API key is not a prefix of the
       schema's vendor with body request""" in {
         Post(postUrl3, HttpEntity(`application/json`, validSchema)) ~>
         addHeader("api_key", wrongVendorKey) ~> sealRoute(routes) ~> check {
@@ -1159,7 +1159,7 @@ class SchemaServiceSpec extends Specification
         }
       }
 
-      """return a 401 if the owner of the API key is not a prefix of the
+      """return a 401 if the vendor prefix of the API key is not a prefix of the
       schema's vendor with query param""" in {
         Put(postUrl6) ~> addHeader("api_key", wrongVendorKey) ~>
         sealRoute(routes) ~> check {
@@ -1169,7 +1169,7 @@ class SchemaServiceSpec extends Specification
         }
       }
 
-      """return a 401 if the owner of the API key is not a prefix of the
+      """return a 401 if the vendor prefix of the API key is not a prefix of the
       schema's vendor with form data""" in {
         Put(postUrl3, FormData(Seq("schema" -> validSchema))) ~>
         addHeader("api_key", wrongVendorKey) ~> sealRoute(routes) ~> check {
@@ -1179,7 +1179,7 @@ class SchemaServiceSpec extends Specification
         }
       }
 
-      """return a 401 if the owner of the API key is not a prefix of the
+      """return a 401 if the vendor prefix of the API key is not a prefix of the
       schema's vendor with body request""" in {
         Put(postUrl3, HttpEntity(`application/json`, validSchema)) ~>
         addHeader("api_key", wrongVendorKey) ~> sealRoute(routes) ~> check {

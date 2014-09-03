@@ -37,12 +37,12 @@ object SchemaActor {
    * @param format schema's format
    * @param version schema's version
    * @param schema schema to be added
-   * @param owner the owner of the API key the request was made with
+   * @param vendorPrefix the prefix of the API key the request was made with
    * @param permission API key's permission
    * @param isPublic whether or not the schema is publicly available
    */
   case class AddSchema(vendor: String, name: String, format: String,
-    version: String, schema: String, owner: String, permission: String,
+    version: String, schema: String, vendorPrefix: String, permission: String,
     isPublic: Boolean = false)
 
   /**
@@ -53,27 +53,27 @@ object SchemaActor {
    * @param format schema's format
    * @param version schema's version
    * @param schema schema to be updated
-   * @param owner the owner of the API key the request was made with
+   * @param vendorPrefix the prefix of the API key the request was made with
    * @param permission API key's permission
    * @param isPublic wheter or not the schema is publicly available
    */
   case class UpdateSchema(vendor: String, name: String, format: String,
-    version: String, schema: String, owner: String, permission: String,
+    version: String, schema: String, vendorPrefix: String, permission: String,
     isPublic: Boolean = false)
 
   /**
    * Message to send in order to retrieve every public schema.
-   * @param owner the owner of the API key the request was made with
+   * @param vendorPrefix the prefix of the API key the request was made with
    * @param permission API key's permission
    */
-  case class GetPublicSchemas(owner: String, permission: String)
+  case class GetPublicSchemas(vendorPrefix: String, permission: String)
 
   /**
    * Message to send in order to retrieve every public schema's metadata.
-   * @param owner the owner of the API key the request was made with
+   * @param vendorPrefix the prefix of the API key the request was made with
    * @param permission API key's permission
    */
-  case class GetPublicMetadata(owner: String, permission: String)
+  case class GetPublicMetadata(vendorPrefix: String, permission: String)
 
   /**
    * Message to send in order to retrieve a schema based on its
@@ -82,11 +82,11 @@ object SchemaActor {
    * @param names list of schemas' names
    * @param formats list of schemas' formats
    * @param versions list of schemas' versions
-   * @param owner the owner of the API key the request was made with
+   * @param vendorPrefix the prefix of the API key the request was made with
    * @param permission API key's permission
    */
   case class GetSchema(vendors: List[String], names: List[String],
-    formats: List[String], versions: List[String], owner: String,
+    formats: List[String], versions: List[String], vendorPrefix: String,
     permission: String)
 
   /**
@@ -96,11 +96,11 @@ object SchemaActor {
    * @param names list of schemas' names
    * @param formats list of schemas' formats
    * @param versions list of schemas' versions
-   * @param owner the owner of the API key the request was made with
+   * @param vendorPrefix the prefix of the API key the request was made with
    * @param permission API key's permission
    */
   case class GetMetadata(vendors: List[String], names: List[String],
-    formats: List[String], versions: List[String], owner: String,
+    formats: List[String], versions: List[String], vendorPrefix: String,
     permission: String)
 
   /**
@@ -108,62 +108,62 @@ object SchemaActor {
    * @param vendors list of schemas' vendors
    * @param names list of schemas' names
    * @param formats list of schemas' formats
-   * @param owner the owner of the API key the request was made with
+   * @param vendorPrefix the prefix of the API key the request was made with
    * @param permission API key's permission
    */
   case class GetSchemasFromFormat(vendors: List[String], names: List[String],
-    formats: List[String], owner: String, permission: String)
+    formats: List[String], vendorPrefix: String, permission: String)
 
   /**
    * Message to send in order to get metadata about every version of a schema.
    * @param vendors list of schemas' vendors
    * @param names list of schemas' names
    * @param formats list of schemas' formats
-   * @param owner the owner of the API key the request was made with
+   * @param vendorPrefix the prefix of the API key the request was made with
    * @param permission API key's permission
    */
   case class GetMetadataFromFormat(vendors: List[String], names: List[String],
-    formats: List[String], owner: String, permission: String)
+    formats: List[String], vendorPrefix: String, permission: String)
 
   /**
    * Message to send in order to retrieve every format, version combination of
    * a schema.
    * @param vendors list of schemas' vendors
    * @param names list of schemas' names
-   * @param owner the owner of the API key the request was made with
+   * @param vendorPrefix the prefix of the API key the request was made with
    * @param permission API key's permission
    */
   case class GetSchemasFromName(vendors: List[String], names: List[String],
-    owner: String, permission: String)
+    vendorPrefix: String, permission: String)
 
   /**
    * Message to send in order to retrieve metadata about every format, version
    * combination of a schema.
    * @param vendors list of schemas' vendors
    * @param names list of schemas' names
-   * @param owner the owner of the API key the request was made with
+   * @param vendorPrefix the prefix of the API key the request was made with
    * @param permission API key's permission
    */
   case class GetMetadataFromName(vendors: List[String], names: List[String],
-    owner: String, permission: String)
+    vendorPrefix: String, permission: String)
 
   /**
    * Message to send in order to retrieve every schema belonging to a vendor.
    * @param vendors list of schemas' vendors
-   * @param owner the owner of the API key the request was made with
+   * @param vendorPrefix the prefix of the API key the request was made with
    * @param permission API key's permission
    */
-  case class GetSchemasFromVendor(vendors: List[String], owner: String,
+  case class GetSchemasFromVendor(vendors: List[String], vendorPrefix: String,
     permission: String)
 
   /**
    * Message to send in order to retrieve metadata about every schema belonging
    * to a vendor.
    * @param vendors list of schemas' vendors
-   * @param owner the owner of the API key the request was made with
+   * @param vendorPrefix the prefix of the API key the request was made with
    * @param permission API key's permission
    */
-  case class GetMetadataFromVendor(vendors: List[String], owner: String,
+  case class GetMetadataFromVendor(vendors: List[String], vendorPrefix: String,
     permission: String)
 
   /**

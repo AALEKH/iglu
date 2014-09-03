@@ -149,51 +149,56 @@ class SchemaDAO(val db: Database) extends DAO {
   /**
    * Gets every schema belongig to a specific vendor.
    * @param vendors schemas' vendors
-   * @param owner the owner of the API key the request was made with
+   * @param vendorPrefix the prefix of the API key the request was made with
    * @param permission API key's permission
    * @return a status code and json pair containing the list of all schemas
    * of this vendor
    */
-  def getFromVendor(vendors: List[String], owner: String, permission: String):
-  (StatusCode, String) =
-    db withDynSession {
-      val preliminaryList = (for {
-        s <- schemas if s.vendor inSet vendors
-      } yield s).list
+  def getFromVendor(vendors: List[String], vendorPrefix: String,
+    permission: String): (StatusCode, String) =
+      db withDynSession {
+        val preliminaryList = (for {
+          s <- schemas if s.vendor inSet vendors
+        } yield s).list
 
-      if (preliminaryList.length == 0) {
-        (NotFound, result(404, "There are no schemas for this vendor"))
-      } else {
-        val l: List[JValue] =
-          preliminaryList
-            .filter(s => (s.vendor startsWith owner) || s.isPublic)
-            .map(s =>
-              parse(s.schema) merge Extraction.decompose(
-                MetadataContainer(
-                  Metadata(buildLoc(s.vendor, s.name, s.format, s.version),
-                    s.createdAt.toString("MM/dd/yyyy HH:mm:ss"),
-                    s.updatedAt.toString("MM/dd/yyyy HH:mm:ss"),
-                    getPermission(s.vendor, owner, permission, s.isPublic)))))
-
-        if (l.length == 1) {
-          (OK, writePretty(l(0)))
-        } else if (l.length > 1) {
-          (OK, writePretty(l))
+        if (preliminaryList.length == 0) {
+          (NotFound, result(404, "There are no schemas for this vendor"))
         } else {
-          (Unauthorized, result(401, "You do not have sufficient privileges"))
+          val l: List[JValue] =
+            preliminaryList
+              .filter(s => (s.vendor startsWith vendorPrefix) || s.isPublic)
+              .map(s =>
+                parse(s.schema) merge Extraction.decompose(
+                  MetadataContainer(
+                    Metadata(buildLoc(s.vendor, s.name, s.format, s.version),
+                      s.createdAt.toString("MM/dd/yyyy HH:mm:ss"),
+                      s.updatedAt.toString("MM/dd/yyyy HH:mm:ss"),
+                      getPermission(s.vendor, vendorPrefix, permission,
+                        s.isPublic)
+                    )
+                  )
+                )
+              )
+
+          if (l.length == 1) {
+            (OK, writePretty(l(0)))
+          } else if (l.length > 1) {
+            (OK, writePretty(l))
+          } else {
+            (Unauthorized, result(401, "You do not have sufficient privileges"))
+          }
         }
       }
-    }
 
   /**
    * Gets metadata about every schemas belonging to a specific vendor.
    * @param vendors schemas' vendors
-   * @param owner the owner of the API key the request was made with
+   * @param vendorPrefix the prefix of the API key the request was made with
    * @param permission API key's permission
    * @return a status code and json pair containing metadata about every schema
    * of this vendor
    */
-  def getMetadataFromVendor(vendors: List[String], owner: String,
+  def getMetadataFromVendor(vendors: List[String], vendorPrefix: String,
     permission: String): (StatusCode, String) =
       db withDynSession {
         val preliminaryList = (for {
@@ -205,12 +210,15 @@ class SchemaDAO(val db: Database) extends DAO {
         } else {
           val l: List[ResMetadata] =
             preliminaryList
-              .filter(s => (s.vendor startsWith owner) || s.isPublic)
+              .filter(s => (s.vendor startsWith vendorPrefix) || s.isPublic)
               .map(s => ResMetadata(s.vendor, s.name, s.format, s.version,
                 Metadata(buildLoc(s.vendor, s.name, s.format, s.version),
                   s.createdAt.toString("MM/dd/yyyy HH:mm:ss"),
                   s.updatedAt.toString("MM/dd/yyyy HH:mm:ss"),
-                  getPermission(s.vendor, owner, permission, s.isPublic))))
+                  getPermission(s.vendor, vendorPrefix, permission,
+                    s.isPublic)
+                )
+              ))
 
           if (l.length == 1) {
             (OK, writePretty(l(0)))
@@ -226,13 +234,13 @@ class SchemaDAO(val db: Database) extends DAO {
    * Gets every schemas for this vendor, names combination.
    * @param vendors schemas' vendors
    * @param names schemas' names
-   * @param owner the owner of the API key the request was made with
+   * @param vendorPrefix the prefix of the API key the request was made with
    * @param permission API key's permission
    * @return a status code and json pair containing the list of all schemas
    * satifsfying the query
    */
-  def getFromName(vendors: List[String], names: List[String], owner: String,
-    permission: String): (StatusCode, String) =
+  def getFromName(vendors: List[String], names: List[String],
+    vendorPrefix: String, permission: String): (StatusCode, String) =
       db withDynSession {
         val preliminaryList = (for {
           s <- schemas if (s.vendor inSet vendors) &&
@@ -245,14 +253,19 @@ class SchemaDAO(val db: Database) extends DAO {
         } else {
           val l: List[JValue] =
             preliminaryList
-              .filter(s => (s.vendor startsWith owner) || s.isPublic)
+              .filter(s => (s.vendor startsWith vendorPrefix) || s.isPublic)
               .map(s =>
                 parse(s.schema) merge Extraction.decompose(
                   MetadataContainer(
                     Metadata(buildLoc(s.vendor, s.name, s.format, s.version),
                       s.createdAt.toString("MM/dd/yyyy HH:mm:ss"),
                       s.updatedAt.toString("MM/dd/yyyy HH:mm:ss"),
-                      getPermission(s.vendor, owner, permission, s.isPublic)))))
+                      getPermission(s.vendor, vendorPrefix, permission,
+                        s.isPublic)
+                    )
+                  )
+                )
+              )
 
           if (l.length == 1) {
             (OK, writePretty(l(0)))
@@ -268,13 +281,13 @@ class SchemaDAO(val db: Database) extends DAO {
    * Gets metadata about every schemas for this vendor, names combination.
    * @param vendors schemas' vendors
    * @param names schemas' names
-   * @param owner the owner of the API key the request was made with
+   * @param vendorPrefix the prefix of the API key the request was made with
    * @param permission API key's permission
    * @return a status code and json pair containing metadata about the schemas
    * satifsfying the query
    */
   def getMetadataFromName(vendors: List[String], names: List[String],
-    owner: String, permission: String): (StatusCode, String) =
+    vendorPrefix: String, permission: String): (StatusCode, String) =
       db withDynSession {
         val preliminaryList = (for {
           s <- schemas if (s.vendor inSet vendors) &&
@@ -287,12 +300,14 @@ class SchemaDAO(val db: Database) extends DAO {
         } else {
           val l: List[ResMetadata] =
             preliminaryList
-              .filter(s => (s.vendor startsWith owner) || s.isPublic)
+              .filter(s => (s.vendor startsWith vendorPrefix) || s.isPublic)
               .map(s => ResMetadata(s.vendor, s.name, s.format, s.version,
                 Metadata(buildLoc(s.vendor, s.name, s.format, s.version),
                   s.createdAt.toString("MM/dd/yyyy HH:mm:ss"),
                   s.updatedAt.toString("MM/dd/yyyy HH:mm:ss"),
-                  getPermission(s.vendor, owner, permission, s.isPublic))))
+                  getPermission(s.vendor, vendorPrefix, permission, s.isPublic)
+                )
+              ))
 
           if (l.length == 1) {
             (OK, writePretty(l(0)))
@@ -309,13 +324,13 @@ class SchemaDAO(val db: Database) extends DAO {
    * @param vendors schemas' vendors
    * @param names schenas' names
    * @param schemaFormats schemas' formats
-   * @param owner the owner of the API key the request was made with
+   * @param vendorPrefix the prefix of the API key the request was made with
    * @param permission API key's permission
    * @return a status code and json pair containing the list of every version of
    * a schema
    */
   def getFromFormat(vendors: List[String], names: List[String],
-    schemaFormats: List[String], owner: String, permission: String):
+    schemaFormats: List[String], vendorPrefix: String, permission: String):
   (StatusCode, String) =
     db withDynSession {
       val preliminaryList = (for {
@@ -330,14 +345,19 @@ class SchemaDAO(val db: Database) extends DAO {
       } else {
         val l: List[JValue] =
           preliminaryList
-            .filter(s => (s.vendor startsWith owner) || s.isPublic)
+            .filter(s => (s.vendor startsWith vendorPrefix) || s.isPublic)
             .map(s =>
               parse(s.schema) merge Extraction.decompose(
                 MetadataContainer(
                   Metadata(buildLoc(s.vendor, s.name, s.format, s.version),
                     s.createdAt.toString("MM/dd/yyyy HH:mm:ss"),
                     s.updatedAt.toString("MM/dd/yyyy HH:mm:ss"),
-                    getPermission(s.vendor, owner, permission, s.isPublic)))))
+                    getPermission(s.vendor, vendorPrefix, permission,
+                      s.isPublic)
+                  )
+                )
+              )
+            )
 
         if (l.length == 1) {
           (OK, writePretty(l(0)))
@@ -354,13 +374,13 @@ class SchemaDAO(val db: Database) extends DAO {
    * @param vendors schemas' vendors
    * @param names schemas' names
    * @param schemaFormats schemas' formats
-   * @param owner the owner of the API key the request was made with
+   * @param vendorPrefix the prefix of the API key the request was made with
    * @param permission API key's permission
    * @return a status code and json pair containing metadata about every version
    * of a schema
    */
   def getMetadataFromFormat(vendors: List[String], names: List[String],
-    schemaFormats: List[String], owner: String, permission: String):
+    schemaFormats: List[String], vendorPrefix: String, permission: String):
   (StatusCode, String) =
     db withDynSession {
       val preliminaryList = (for {
@@ -375,12 +395,12 @@ class SchemaDAO(val db: Database) extends DAO {
       } else {
         val l: List[ResMetadata] =
           preliminaryList
-            .filter(s => (s.vendor startsWith owner) || s.isPublic)
+            .filter(s => (s.vendor startsWith vendorPrefix) || s.isPublic)
             .map(s => ResMetadata(s.vendor, s.name, s.format, s.version,
               Metadata(buildLoc(s.vendor, s.name, s.format, s.version),
                 s.createdAt.toString("MM/dd/yyyy HH:mm:ss"),
                 s.updatedAt.toString("MM/dd/yyyy HH:mm:ss"),
-                getPermission(s.vendor, owner, permission, s.isPublic))))
+                getPermission(s.vendor, vendorPrefix, permission, s.isPublic))))
 
         if (l.length == 1) {
           (OK, writePretty(l(0)))
@@ -398,12 +418,12 @@ class SchemaDAO(val db: Database) extends DAO {
    * @param names the schema's names
    * @param schemaFormats the schema's formats
    * @param versions the schema's versions
-   * @param owner the owner of the API key the request was made with
+   * @param vendorPrefix the prefix of the API key the request was made with
    * @param permission API key's permission
    * @return a status code and json pair containing the schema
    */
   def get(vendors: List[String], names: List[String],
-    schemaFormats: List[String], versions: List[String], owner: String,
+    schemaFormats: List[String], versions: List[String], vendorPrefix: String,
     permission: String): (StatusCode, String) =
       db withDynSession {
         val preliminaryList = (for {
@@ -418,14 +438,19 @@ class SchemaDAO(val db: Database) extends DAO {
         } else {
           val l: List[JValue] =
             preliminaryList
-              .filter(s => (s.vendor startsWith owner) || s.isPublic)
+              .filter(s => (s.vendor startsWith vendorPrefix) || s.isPublic)
               .map(s =>
                 parse(s.schema) merge Extraction.decompose(
                   MetadataContainer(
                     Metadata(buildLoc(s.vendor, s.name, s.format, s.version),
                       s.createdAt.toString("MM/dd/yyyy HH:mm:ss"),
                       s.updatedAt.toString("MM/dd/yyyy HH:mm:ss"),
-                      getPermission(s.vendor, owner, permission, s.isPublic)))))
+                      getPermission(s.vendor, vendorPrefix, permission,
+                        s.isPublic)
+                    )
+                  )
+                )
+              )
 
           if (l.length == 1) {
             (OK, writePretty(l(0)))
@@ -443,12 +468,12 @@ class SchemaDAO(val db: Database) extends DAO {
    * @param names the schema's names
    * @param schemaFormats the schea's formats
    * @param versions the schema's versions
-   * @param owner the owner of the API key the request was made with
+   * @param vendorPrefix the prefix of the API key the request was made with
    * @param permission API key's permission
    * @return a status code and json pair containing the metadata
    */
   def getMetadata(vendors: List[String], names: List[String],
-    schemaFormats: List[String], versions: List[String], owner: String,
+    schemaFormats: List[String], versions: List[String], vendorPrefix: String,
     permission: String): (StatusCode, String) =
       db withDynSession {
         val preliminaryList = (for {
@@ -463,12 +488,14 @@ class SchemaDAO(val db: Database) extends DAO {
         } else {
           val l: List[ResMetadata] =
             preliminaryList
-              .filter(s => (s.vendor startsWith owner) || s.isPublic)
+              .filter(s => (s.vendor startsWith vendorPrefix) || s.isPublic)
               .map(s => ResMetadata(s.vendor, s.name, s.format, s.version,
                 Metadata(buildLoc(s.vendor, s.name, s.format, s.version),
                   s.createdAt.toString("MM/dd/yyyy HH:mm:ss"),
                   s.updatedAt.toString("MM/dd/yyyy HH:mm:ss"),
-                  getPermission(s.vendor, owner, permission, s.isPublic))))
+                  getPermission(s.vendor, vendorPrefix, permission, s.isPublic)
+                )
+              ))
 
           if (l.length == 1) {
             (OK, writePretty(l(0)))
@@ -482,11 +509,11 @@ class SchemaDAO(val db: Database) extends DAO {
 
   /**
    * Gets every public schema.
-   * @param owner the owner of the API key the request was made with
+   * @param vendorPrefix the prefix of the API key the request was made with
    * @param permission API key's permission
    * @return a status code and json pair containing the schemas
    */
-  def getPublicSchemas(owner: String, permission: String):
+  def getPublicSchemas(vendorPrefix: String, permission: String):
   (StatusCode, String) =
     db withDynSession {
       val l: List[JValue] = (for {
@@ -499,7 +526,11 @@ class SchemaDAO(val db: Database) extends DAO {
               Metadata(buildLoc(s.vendor, s.name, s.format, s.version),
                 s.createdAt.toString("MM/dd/yyyy HH:mm:ss"),
                 s.updatedAt.toString("MM/dd/yyyy HH:mm:ss"),
-                getPermission(s.vendor, owner, permission, s.isPublic)))))
+                getPermission(s.vendor, vendorPrefix, permission, s.isPublic)
+              )
+            )
+          )
+        )
 
       if (l.length == 1) {
         (OK, writePretty(l(0)))
@@ -512,11 +543,11 @@ class SchemaDAO(val db: Database) extends DAO {
 
   /**
    * Gets metadata about every public schema.
-   * @param owner the owner of the API key the request was made with
+   * @param vendorPrefix the prefix of the API key the request was made with
    * @param permission API key's permission
    * @return a status code and json pair containing the metadata
    */
-  def getPublicMetadata(owner: String, permission: String):
+  def getPublicMetadata(vendorPrefix: String, permission: String):
   (StatusCode, String) =
     db withDynSession {
       val l: List[ResMetadata] = (for {
@@ -527,7 +558,7 @@ class SchemaDAO(val db: Database) extends DAO {
           Metadata(buildLoc(s.vendor, s.name, s.format, s.version),
             s.createdAt.toString("MM/dd/yyyy HH:mm:ss"),
             s.updatedAt.toString("MM/dd/yyyy HH:mm:ss"),
-            getPermission(s.vendor, owner, permission, s.isPublic))))
+            getPermission(s.vendor, vendorPrefix, permission, s.isPublic))))
 
       if (l.length == 1) {
         (OK, writePretty(l(0)))
@@ -545,18 +576,18 @@ class SchemaDAO(val db: Database) extends DAO {
    * @param format the schema's format
    * @param version the schema's version
    * @param schema the schema itself
-   * @param owner the owner of the API key the request was made with
+   * @param vendorPrefix the prefix of the API key the request was made with
    * @param permission API key's permission
    * @param isPublic whether or not the schema is publicly available
    * @return a status code json response pair
    */
   def add(vendor: String, name: String, format: String, version: String,
-    schema: String, owner: String, permission: String,
+    schema: String, vendorPrefix: String, permission: String,
     isPublic: Boolean = false): (StatusCode, String) =
-      if (permission == "write" && (vendor startsWith owner)) {
+      if (permission == "write" && (vendor startsWith vendorPrefix)) {
         db withDynSession {
-          get(List(vendor), List(name), List(format), List(version), owner,
-            permission) match {
+          get(List(vendor), List(name), List(format), List(version),
+            vendorPrefix, permission) match {
               case (OK, j) => (Unauthorized,
                 result(401, "This schema already exists"))
               case _ => schemas.insert(
@@ -580,18 +611,18 @@ class SchemaDAO(val db: Database) extends DAO {
    * @param format the schema's format
    * @param version the schema's version
    * @param schema the schema itself
-   * @param owner the owner of the API key the request was made with
+   * @param vendorPrefix the prefix of the API key the request was made with
    * @param permission API key's permission
    * @param isPublic whether or not the schema is publicly available
    * @return a status code json response pair
    */
    def update(vendor: String, name: String, format: String, version: String,
-     schema: String, owner: String, permission: String,
+     schema: String, vendorPrefix: String, permission: String,
      isPublic: Boolean = false): (StatusCode, String) =
-       if (permission == "write" && (vendor startsWith owner)) {
+       if (permission == "write" && (vendor startsWith vendorPrefix)) {
          db withDynSession {
-           get(List(vendor), List(name), List(format), List(version), owner,
-             permission) match {
+           get(List(vendor), List(name), List(format), List(version),
+             vendorPrefix, permission) match {
                case (OK, j) =>
                  schemas
                    .filter(s => s.vendor === vendor &&
@@ -737,20 +768,20 @@ class SchemaDAO(val db: Database) extends DAO {
   /**
    * Helper method to construct an appropriate permission object.
    * @param vendor schema's vendor
-   * @param owner API key's owner
+   * @param vendorPrefix the vendor prefix of the API key's
    * @param permission API key's permission
    * @param isPublic whether or not the schema is public
    * @return an appropriate Permission object
    */
-  private def getPermission(vendor: String, owner: String, permission: String,
-    isPublic: Boolean): Permission =
+  private def getPermission(vendor: String, vendorPrefix: String,
+    permission: String, isPublic: Boolean): Permission =
       Permission(
         if (isPublic) {
           "public"
         } else {
           "private"
         },
-        if ((vendor startsWith owner) && permission == "write") {
+        if ((vendor startsWith vendorPrefix) && permission == "write") {
           "private"
         } else {
           "none"

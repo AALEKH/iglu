@@ -127,7 +127,7 @@ class SchemaService(schemaActor: ActorRef, apiKeyActor: ActorRef)
 
   /**
    * Post route
-   * @param owner the owner of the API key the request was made with
+   * @param vendorPrefix the prefix of the API key the request was made with
    * @param permission API key's permission
    */
   @ApiOperation(value = "Adds a new schema to the repository",
@@ -162,14 +162,14 @@ class SchemaService(schemaActor: ActorRef, apiKeyActor: ActorRef)
       authentication, which was not supplied with the request"""),
     new ApiResponse(code = 500, message = "Something went wrong")
   ))
-  def addRoute(owner: String, permission: String) =
+  def addRoute(vendorPrefix: String, permission: String) =
       path("[a-z]+\\.[a-z.-]+".r / "[a-zA-Z0-9_-]+".r / "[a-z]+".r /
         "[0-9]+-[0-9]+-[0-9]+".r) { (v, n, f, vs) =>
           anyParam('isPublic.?) { isPublic =>
             validateSchema(f) { schema =>
               complete {
-                (schemaActor ? AddSchema(v, n, f, vs, schema, owner, permission,
-                  isPublic == Some("true")))
+                (schemaActor ? AddSchema(v, n, f, vs, schema, vendorPrefix,
+                  permission, isPublic == Some("true")))
                     .mapTo[(StatusCode, String)]
               }
             }
@@ -178,7 +178,7 @@ class SchemaService(schemaActor: ActorRef, apiKeyActor: ActorRef)
 
   /**
    * Put route
-   * @param owner the owner of the API key the request was made with
+   * @param vendorPrefix the prefix of the API key the request was made with
    * @param permission API key's permission
    */
   @ApiOperation(value = "Updates or creates a schema in the repository",
@@ -213,13 +213,13 @@ class SchemaService(schemaActor: ActorRef, apiKeyActor: ActorRef)
       authentication, which was not supplied with the request"""),
     new ApiResponse(code = 500, message = "Something went wrong")
   ))
-  def updateRoute(owner: String, permission: String) =
+  def updateRoute(vendorPrefix: String, permission: String) =
       path("[a-z]+\\.[a-z.-]+".r / "[a-zA-Z0-9_-]+".r / "[a-z]+".r /
         "[0-9]+-[0-9]+-[0-9]+".r) { (v, n, f, vs) =>
           anyParam('isPublic.?) { isPublic =>
             validateSchema(f) { schema =>
               complete {
-                (schemaActor ? UpdateSchema(v, n, f, vs, schema, owner,
+                (schemaActor ? UpdateSchema(v, n, f, vs, schema, vendorPrefix,
                   permission, isPublic == Some("true")))
                     .mapTo[(StatusCode, String)]
               }
@@ -229,7 +229,7 @@ class SchemaService(schemaActor: ActorRef, apiKeyActor: ActorRef)
 
   /**
    * Route to retrieve every public schemas
-   * @param owner the owner of the API key the request was made with
+   * @param vendorPrefix the prefix of the API key the request was made with
    * @param permission API key's permission
    */
   @Path(value = "/public")
@@ -249,15 +249,15 @@ class SchemaService(schemaActor: ActorRef, apiKeyActor: ActorRef)
       authentication, which was not supplied with the request"""),
     new ApiResponse(code = 404, message = "There are no schemas available here")
   ))
-  def publicSchemasRoute(owner: String, permission: String) =
+  def publicSchemasRoute(vendorPrefix: String, permission: String) =
     anyParam('filter.?) { filter =>
       filter match {
         case Some("metadata") => complete {
-          (schemaActor ? GetPublicMetadata(owner, permission))
+          (schemaActor ? GetPublicMetadata(vendorPrefix, permission))
             .mapTo[(StatusCode, String)]
         }
         case _ => complete {
-          (schemaActor ? GetPublicSchemas(owner, permission))
+          (schemaActor ? GetPublicSchemas(vendorPrefix, permission))
             .mapTo[(StatusCode, String)]
         }
       }
@@ -269,7 +269,7 @@ class SchemaService(schemaActor: ActorRef, apiKeyActor: ActorRef)
    * @param n list of schema names
    * @param f list of schema formats
    * @param vs list of schema versions
-   * @param o the owner of the API key the request was made with
+   * @param vp the vendor prefix of the API key the request was made with
    * @param p API key's permission
    */
   @ApiOperation(value = """Retrieves a schema based on its (vendor, name,
@@ -303,15 +303,15 @@ class SchemaService(schemaActor: ActorRef, apiKeyActor: ActorRef)
     new ApiResponse(code = 404, message = "There are no schemas available here")
   ))
   def readRoute(v: List[String], n: List[String], f: List[String],
-    vs: List[String], o: String, p: String) =
+    vs: List[String], vp: String, p: String) =
       anyParam('filter.?) { filter =>
         filter match {
           case Some("metadata") => complete {
-            (schemaActor ? GetMetadata(v, n, f, vs, o, p))
+            (schemaActor ? GetMetadata(v, n, f, vs, vp, p))
               .mapTo[(StatusCode, String)]
           }
           case _ => complete {
-            (schemaActor ? GetSchema(v, n, f, vs, o, p))
+            (schemaActor ? GetSchema(v, n, f, vs, vp, p))
               .mapTo[(StatusCode, String)]
           }
         }
@@ -322,7 +322,7 @@ class SchemaService(schemaActor: ActorRef, apiKeyActor: ActorRef)
    * @param v list of schema vendors
    * @param n list of schema names
    * @param f list of schema formats
-   * @param o the owner of the API key the request was made with
+   * @param vp the vendor prefix of the API key the request was made with
    * @param p API key's permission
    */
   @ApiOperation(value = """Retrieves every version of a particular format of a
@@ -353,15 +353,15 @@ class SchemaService(schemaActor: ActorRef, apiKeyActor: ActorRef)
       "There are no schemas for this vendor, name, format combination")
   ))
   def readFormatRoute(v: List[String], n: List[String], f: List[String],
-    o: String, p: String) =
+    vp: String, p: String) =
       anyParam('filter.?) { filter =>
         filter match {
           case Some("metadata") => complete {
-            (schemaActor ? GetMetadataFromFormat(v, n, f, o, p))
+            (schemaActor ? GetMetadataFromFormat(v, n, f, vp, p))
               .mapTo[(StatusCode, String)]
           }
           case _ => complete {
-            (schemaActor ? GetSchemasFromFormat(v, n, f, o, p))
+            (schemaActor ? GetSchemasFromFormat(v, n, f, vp, p))
               .mapTo[(StatusCode, String)]
           }
         }
@@ -371,7 +371,7 @@ class SchemaService(schemaActor: ActorRef, apiKeyActor: ActorRef)
    * Route to retrieve every version of every format of a schema.
    * @param v list of schema vendors
    * @param n list of schema names
-   * @param o the owner of the API key the request was made with
+   * @param vp the vendor prefix of the API key the request was made with
    * @param p API key's permission
    */
   @ApiOperation(value = "Retrieves every version of every format of a schema",
@@ -396,15 +396,15 @@ class SchemaService(schemaActor: ActorRef, apiKeyActor: ActorRef)
     new ApiResponse(code = 404,
       message = "There are no schemas for this vendor, name combination")
   ))
-  def readNameRoute(v: List[String], n: List[String], o: String, p: String) =
+  def readNameRoute(v: List[String], n: List[String], vp: String, p: String) =
     anyParam('filter.?) { filter =>
       filter match {
         case Some("metadata") => complete {
-          (schemaActor ? GetMetadataFromName(v, n, o, p))
+          (schemaActor ? GetMetadataFromName(v, n, vp, p))
             .mapTo[(StatusCode, String)]
         }
         case _ => complete {
-          (schemaActor ? GetSchemasFromName(v, n, o, p))
+          (schemaActor ? GetSchemasFromName(v, n, vp, p))
             .mapTo[(StatusCode, String)]
         }
       }
@@ -413,7 +413,7 @@ class SchemaService(schemaActor: ActorRef, apiKeyActor: ActorRef)
   /**
    * Route to retrieve every schema belonging to a vendor.
    * @param v list of schema vendors
-   * @param o the owner of the API key the request was made with
+   * @param vp the vendor prefix of the API key the request was made with
    * @param p API key's permission
    */
   @ApiOperation(value = "Retrieves every schema belonging to a vendor",
@@ -434,15 +434,15 @@ class SchemaService(schemaActor: ActorRef, apiKeyActor: ActorRef)
     new ApiResponse(code = 404,
       message = "There are no schemas for this vendor")
   ))
-  def readVendorRoute(v: List[String], o: String, p: String) =
+  def readVendorRoute(v: List[String], vp: String, p: String) =
     anyParam('filter.?) { filter =>
       filter match {
         case Some("metadata") => complete {
-          (schemaActor ? GetMetadataFromVendor(v, o, p))
+          (schemaActor ? GetMetadataFromVendor(v, vp, p))
             .mapTo[(StatusCode, String)]
         }
         case _ => complete {
-          (schemaActor ? GetSchemasFromVendor(v, o, p))
+          (schemaActor ? GetSchemasFromVendor(v, vp, p))
             .mapTo[(StatusCode, String)]
         }
       }

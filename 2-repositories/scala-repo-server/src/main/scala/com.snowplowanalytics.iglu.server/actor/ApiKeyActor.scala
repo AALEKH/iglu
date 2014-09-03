@@ -32,8 +32,8 @@ import java.util.UUID
 object ApiKeyActor {
 
   /**
-   * Message to send in order to retrieve a (owner, permission) pair if the
-   * key exists.
+   * Message to send in order to retrieve a (vendorPrefix, permission) pair if
+   * the key exists.
    * @param uid identifier for the API key to be retrieved
    */
   case class Auth(uid: String)
@@ -60,14 +60,14 @@ object ApiKeyActor {
 
   /**
    * Message to send in order to delete every keys belonging to the specified
-   * owner.
+   * vendor prefix.
    * @param vendorPrefix the API keys having this vendor prefix will be deleted
    */
   case class DeleteKeys(vendorPrefix: String)
 
   /**
    * Message to send in order to add a (write, read) pair of keys for the
-   * specified owner if it is not conflicting with an existing one.
+   * specified vendor prefix if it is not conflicting with an existing one.
    * @param vendorPrefix the API keys to be generated will have this vendor
    * prefix
    */
