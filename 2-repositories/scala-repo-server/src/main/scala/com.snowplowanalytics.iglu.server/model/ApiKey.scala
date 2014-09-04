@@ -215,19 +215,49 @@ class ApiKeyDAO(val db: Database) extends DAO {
    */
   def regenerate(vendorPrefix: String): (StatusCode, String) =
     db withDynSession {
-      getFromVendorPrefix(vendorPrefix) match {
-        case (NotFound, l) => addReadWrite(vendorPrefix)
-        case (OK, l) => {
-          deleteFromVendorPrefix(vendorPrefix) match {
-            case (OK, m) => addReadWrite(vendorPrefix) match {
-              case (Created, l) => (OK, l)
-              case we => we
-            }
-            case we => we
-          }
+      val l = (for {
+        k <- apiKeys if k.vendorPrefix === vendorPrefix
+      } yield k)
+        .map(k => (k.uid, k.permission))
+        .list
+
+      (l.length: @unchecked) match {
+        case 0 => addReadWrite(vendorPrefix)
+        case 1 => (l(0)._2: @unchecked) match {
+          case "read" =>
+            apiKeys
+              .filter(k => k.vendorPrefix === vendorPrefix &&
+                k.permission === "read")
+              .map(k => (k.uid, k.updatedAt))
+              .update(UUID.randomUUID, new LocalDateTime)
+            add(vendorPrefix, "write")
+          case "write" =>
+            apiKeys
+              .filter(k => k.vendorPrefix === vendorPrefix &&
+                k.permission === "write")
+              .map(k => (k.uid, k.updatedAt))
+              .update(UUID.randomUUID, new LocalDateTime)
+            add(vendorPrefix, "read")
+          case "super" =>
+            apiKeys
+              .filter(k => k.vendorPrefix === vendorPrefix &&
+                k.permission === "super")
+              .map(k => (k.uid, k.updatedAt))
+              .update(UUID.randomUUID, new LocalDateTime)
         }
-        case we => we
+        case 2 =>
+          apiKeys
+            .filter(k => k.vendorPrefix === vendorPrefix &&
+              k.permission === "read")
+            .map(k => (k.uid, k.updatedAt))
+            .update(UUID.randomUUID, new LocalDateTime)
+          apiKeys
+            .filter(k => k.vendorPrefix === vendorPrefix &&
+              k.permission === "write")
+            .map(k => (k.uid, k.updatedAt))
+            .update(UUID.randomUUID, new LocalDateTime)
       }
+      getFromVendorPrefix(vendorPrefix)
     }
 
   /**
