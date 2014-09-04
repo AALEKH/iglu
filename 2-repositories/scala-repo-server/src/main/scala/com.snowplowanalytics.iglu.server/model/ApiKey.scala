@@ -195,7 +195,7 @@ class ApiKeyDAO(val db: Database) extends DAO {
     }
 
   /**
-   * Deletes all API keys having to the specified vendor prefix.
+   * Deletes all API keys having the specified vendor prefix.
    * @param vendorPrefix vendor prefix of the API keys we want to delete
    * @return a (status code, json response) pair
    */
@@ -205,6 +205,28 @@ class ApiKeyDAO(val db: Database) extends DAO {
         case 0 => (NotFound, result(404, "Vendor prefix not found"))
         case 1 => (OK, result(200, "API key deleted for " + vendorPrefix))
         case n => (OK, result(200, "API keys deleted for " + vendorPrefix))
+      }
+    }
+
+  /**
+   * Updates the API keys having the specified vendor prefix.
+   * @param vendorPrefix vendor prefix of the API keys we want to update
+   * @return a (status code, json response) pair
+   */
+  def regenerate(vendorPrefix: String): (StatusCode, String) =
+    db withDynSession {
+      getFromVendorPrefix(vendorPrefix) match {
+        case (NotFound, l) => addReadWrite(vendorPrefix)
+        case (OK, l) => {
+          deleteFromVendorPrefix(vendorPrefix) match {
+            case (OK, m) => addReadWrite(vendorPrefix) match {
+              case (Created, l) => (OK, l)
+              case we => we
+            }
+            case we => we
+          }
+        }
+        case we => we
       }
     }
 

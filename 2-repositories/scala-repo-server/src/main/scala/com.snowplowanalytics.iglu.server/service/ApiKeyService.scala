@@ -81,6 +81,9 @@ class ApiKeyService(apiKeyActor: ActorRef)
               post {
                 addRoute
               } ~
+              put {
+                regenerateRoute
+              } ~
               delete {
                 deleteKeysRoute
               } ~
@@ -96,7 +99,7 @@ class ApiKeyService(apiKeyActor: ActorRef)
     }
 
   /**
-   * Route to generate a pair of read and read and write API keys.
+   * Route to generate a pair of read and write API keys.
    */
   @Path(value = "/vendorprefixes/{vendorPrefix}")
   @ApiOperation(value = "Generates a pair of read and read/write API keys",
@@ -122,6 +125,35 @@ class ApiKeyService(apiKeyActor: ActorRef)
       complete {
         (apiKeyActor ? AddReadWriteKeys(vendorPrefix))
           .mapTo[(StatusCode, String)]
+      }
+    }
+
+  /**
+   * Route to regenerate a pair of a read and write API keys.
+   */
+  @Path(value = "/vendorprefixes/{vendorPrefix}")
+  @ApiOperation(value = "Regenerates a pair of read and read/write API keys",
+    notes = "Returns a new pair of API keys", httpMethod = "PUT")
+  @ApiImplicitParams(Array(
+    new ApiImplicitParam(name = "vendorPrefix",
+      value = "Vendor prefix of the API keys", required = true,
+      dataType = "string", paramType = "path")
+  ))
+  @ApiResponses(Array(
+    new ApiResponse(code = 401,
+      message = "This vendor prefix is conflicting with an existing one"),
+    new ApiResponse(code = 401,
+      message = "You do not have sufficient privileges"),
+    new ApiResponse(code = 401,
+      message = "The supplied authentication is invalid"),
+    new ApiResponse(code = 401, message = """The resource requires
+      authentication, which was not supplied with the request"""),
+    new ApiResponse(code = 500, message = "Something went wrong")
+  ))
+  def regenerateRoute =
+    path(Segment) { vendorPrefix =>
+      complete {
+        (apiKeyActor ? RegenerateKeys(vendorPrefix)).mapTo[(StatusCode, String)]
       }
     }
 

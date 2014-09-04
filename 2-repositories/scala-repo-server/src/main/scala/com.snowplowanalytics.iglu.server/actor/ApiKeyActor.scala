@@ -40,6 +40,14 @@ object ApiKeyActor {
   case class AddReadWriteKeys(vendorPrefix: String)
 
   /**
+   * Message to send in order to regenerate a (read, write) pair of keys for the
+   * specified vendor prefix.
+   * @param vendorPrefix the vendor prefix for which the API keys need to be
+   * regenerated
+   */
+  case class RegenerateKeys(vendorPrefix: String)
+
+  /**
    * Message to send in order to retrieve a (vendorPrefix, permission) pair if
    * the key exists.
    * @param uid identifier for the API key to be retrieved
@@ -91,6 +99,9 @@ class ApiKeyActor extends Actor {
 
     case AddReadWriteKeys(vendorPrefix) =>
       sender ! apiKey.addReadWrite(vendorPrefix)
+
+    case RegenerateKeys(vendorPrefix) =>
+      sender ! apiKey.regenerate(vendorPrefix)
 
     case Auth(uid) => sender ! apiKey.get(uid)
 
