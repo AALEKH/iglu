@@ -44,16 +44,19 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
   //case classes for json formatting
   case class ResApiKey(vendorPrefix: String, key: String, metadata: Metadata)
   case class Metadata(permission: String, createdAt: String)
-  
+
   implicit val formats = DefaultFormats
 
   val tableName = "apikeys"
   val vendorPrefix = "com.unittest"
+  val otherVendorPrefix = "com.benben"
   val faultyVendorPrefix = "com.unit"
   val notUid = "this-is-not-an-uuid"
 
   var readKey = ""
+  var readKey2 = ""
   var writeKey = ""
+  var writeKey2 = ""
 
   sequential
 
@@ -127,6 +130,129 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
             s"""select count(*)
             from ${tableName}
             where vendor_prefix = '${faultyVendorPrefix}';""").first === 0
+        }
+      }
+    }
+
+    "for regenerate" should {
+
+      "return a 201 and add the API keys properly if the prefix doesnt" +
+      " already exist" in {
+        val (status, res) = apiKey.regenerate(otherVendorPrefix)
+        val list = parse(res).extract[List[ResApiKey]]
+
+        readKey2 = list.find(k => k.metadata.permission == "read") match {
+          case Some(k) => k.key
+          case None => ""
+        }
+        writeKey2 = list.find(k => k.metadata.permission == "write") match {
+          case Some(k) => k.key
+          case None => ""
+        }
+
+        status === Created
+        res must contain("read") and contain("write")
+
+        database withDynSession {
+          Q.queryNA[Int](
+            s"""select count(*)
+            from ${tableName}
+            where uid = '${readKey2}';""").first === 1
+          Q.queryNA[Int](
+            s"""select count(*)
+            from ${tableName}
+            where uid = '${writeKey2}';""").first === 1
+          Q.queryNA[Int](
+            s"""select count(*)
+            from ${tableName}
+            where vendor_prefix = '${otherVendorPrefix}';""").first === 2
+        }
+      }
+
+      "return a 200 if both keys exist" in {
+        val (status, res) = apiKey.regenerate(otherVendorPrefix)
+        val list = parse(res).extract[List[ResApiKey]]
+
+        val newReadKey =
+          list.find(k => k.metadata.permission == "read") match {
+            case Some(k) => k.key
+            case None => ""
+          }
+        val newWriteKey =
+          list.find(k => k.metadata.permission == "write") match {
+            case Some(k) => k.key
+            case None => ""
+          }
+
+        newReadKey must not be equalTo(readKey2)
+        readKey2 = newReadKey
+        newWriteKey must not be equalTo(writeKey2)
+        writeKey2 = newWriteKey
+
+        status === OK
+        res must contain("read") and contain("write")
+
+        database withDynSession {
+          Q.queryNA[Int](
+            s"""select count(*)
+            from ${tableName}
+            where uid = '${readKey2}';""").first === 1
+          Q.queryNA[Int](
+            s"""select count(*)
+            from ${tableName}
+            where uid = '${writeKey2}';""").first === 1
+          Q.queryNA[Int](
+            s"""select count(*)
+            from ${tableName}
+            where vendor_prefix = '${otherVendorPrefix}';""").first === 2
+        }
+      }
+
+      "return a 200 if one key exists" in {
+        apiKey.delete(UUID.fromString(readKey2))
+
+        database withDynSession {
+          Q.queryNA[Int](
+            s"""select count(*)
+            from ${tableName}
+            where vendor_prefix = '${otherVendorPrefix}';""").first === 1
+        }
+
+        val (status, res) = apiKey.regenerate(otherVendorPrefix)
+        val list = parse(res).extract[List[ResApiKey]]
+
+        val newReadKey =
+          list.find(k => k.metadata.permission == "read") match {
+            case Some(k) => k.key
+            case None => ""
+          }
+        val newWriteKey =
+          list.find(k => k.metadata.permission == "write") match {
+            case Some(k) => k.key
+            case None => ""
+          }
+
+        newReadKey must not be equalTo(readKey2)
+        readKey2 = newReadKey
+        newWriteKey must not be equalTo(writeKey2)
+        writeKey2 = newWriteKey
+
+        status === OK
+        res must contain("read") and contain("write")
+
+        database withDynSession {
+          Q.queryNA[Int](
+            s"""select count(*)
+            from ${tableName}
+            where uid = '${readKey2}';""").first === 1
+          Q.queryNA[Int](
+            s"""select count(*)
+            from ${tableName}
+            where uid = '${writeKey2}';""").first === 1
+          Q.queryNA[Int](
+            s"""select count(*)
+            from ${tableName}
+            where vendor_prefix = '${otherVendorPrefix}';""").first === 2
         }
       }
     }

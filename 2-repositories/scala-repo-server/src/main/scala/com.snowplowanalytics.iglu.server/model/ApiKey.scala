@@ -231,6 +231,7 @@ class ApiKeyDAO(val db: Database) extends DAO {
               .map(k => (k.uid, k.updatedAt))
               .update(UUID.randomUUID, new LocalDateTime)
             add(vendorPrefix, "write")
+            getFromVendorPrefix(vendorPrefix)
           case "write" =>
             apiKeys
               .filter(k => k.vendorPrefix === vendorPrefix &&
@@ -238,12 +239,14 @@ class ApiKeyDAO(val db: Database) extends DAO {
               .map(k => (k.uid, k.updatedAt))
               .update(UUID.randomUUID, new LocalDateTime)
             add(vendorPrefix, "read")
+            getFromVendorPrefix(vendorPrefix)
           case "super" =>
             apiKeys
               .filter(k => k.vendorPrefix === vendorPrefix &&
                 k.permission === "super")
               .map(k => (k.uid, k.updatedAt))
               .update(UUID.randomUUID, new LocalDateTime)
+            getFromVendorPrefix(vendorPrefix)
         }
         case 2 =>
           apiKeys
@@ -256,8 +259,8 @@ class ApiKeyDAO(val db: Database) extends DAO {
               k.permission === "write")
             .map(k => (k.uid, k.updatedAt))
             .update(UUID.randomUUID, new LocalDateTime)
+          getFromVendorPrefix(vendorPrefix)
       }
-      getFromVendorPrefix(vendorPrefix)
     }
 
   /**
