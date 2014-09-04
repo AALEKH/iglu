@@ -29,7 +29,7 @@ object Dependencies {
     val jsonValidator = "2.2.5"
     val postgres = "9.1-901-1.jdbc4"
     val slf4j = "1.6.4"
-    val slick = "2.0.2"
+    val slick = "2.1.0"
     val slickpg = "0.6.0-R1"
     val spray = "1.3.1"
     val swagger = "0.4.3"
