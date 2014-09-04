@@ -173,9 +173,7 @@ class ApiKeyActorSpec extends TestKit(ActorSystem()) with SpecificationLike
           }
 
         newReadKey must not be equalTo(readKey2)
-        readKey2 = newReadKey
         newWriteKey must not be equalTo(writeKey2)
-        writeKey2 = newWriteKey
 
         status === OK
         result must contain("read") and contain("write")

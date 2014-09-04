@@ -57,7 +57,9 @@ class ApiKeyServiceSpec extends Specification
   val notUuidKey = "6ead20-9b9f-4648-9c23-770272f8d627"
 
   var readKey = ""
+  var readKey2 = ""
   var writeKey = ""
+  var writeKey2 = ""
 
   val start = "/api/apikeys/"
 
@@ -65,11 +67,8 @@ class ApiKeyServiceSpec extends Specification
   val keyUrl = s"${start}keys/"
 
   val vendorPrefix = "com.test.dont.take.this"
+  val otherVendorPrefix = "com.no.idea"
   val faultyVendorPrefix = "com.test.dont"
-  val vendorPrefix2 = "com.unittest"
-  val faultyVendorPrefix2 = "com.unit"
-  val vendorPrefix3 = "com.no.idea"
-  val faultyVendorPrefix3 = "com.no"
 
   sequential
 
@@ -102,6 +101,7 @@ class ApiKeyServiceSpec extends Specification
           status === Created
           val response = responseAs[String]
           response must contain("read") and contain("write")
+
           val list = parse(response).extract[List[ResApiKey]]
           readKey = list.find(k => k.metadata.permission == "read") match {
             case Some(k) => k.key
@@ -111,6 +111,7 @@ class ApiKeyServiceSpec extends Specification
             case Some(k) => k.key
             case None => ""
           }
+
           readKey must beMatching(uidRegex)
           writeKey must beMatching(uidRegex)
         }
@@ -132,6 +133,115 @@ class ApiKeyServiceSpec extends Specification
           status === Unauthorized
           responseAs[String] must
             contain("This vendor prefix is conflicting with an existing one")
+        }
+      }
+    }
+
+    "for PUT requests" should {
+
+      "return a 401 if the key provided is not super" in {
+        Put(vendorPrefixUrl + otherVendorPrefix) ~>
+        addHeader("api_key", notSuperKey) ~> sealRoute(routes) ~> check {
+          status === Unauthorized
+          responseAs[String] must
+            contain("You do not have sufficient privileges")
+        }
+      }
+
+      "return a 401 if the key provided is not an uuid" in {
+        Put(vendorPrefixUrl + otherVendorPrefix) ~>
+        addHeader("api_key", notUuidKey) ~> sealRoute(routes) ~> check {
+          status === Unauthorized
+          responseAs[String] must
+            contain("The supplied authentication is invalid")
+        }
+      }
+
+      "return a 401 if the vendor prefix is conflicting" in {
+        Put(vendorPrefixUrl + faultyVendorPrefix) ~>
+        addHeader("api_key", superKey) ~> sealRoute(routes) ~> check {
+          status === Unauthorized
+          responseAs[String] must
+            contain("This vendor prefix is conflicting with an existing one")
+        }
+      }
+
+      "return a 201 if the prefix doesnt already exist" in {
+        Put(vendorPrefixUrl + otherVendorPrefix) ~>
+        addHeader("api_key", superKey) ~> sealRoute(routes) ~> check {
+          status === Created
+          val response = responseAs[String]
+          response must contain("read") and contain("write")
+
+          val list = parse(response).extract[List[ResApiKey]]
+          readKey2 = list.find(k => k.metadata.permission == "read") match {
+            case Some(k) => k.key
+            case None => ""
+          }
+          writeKey2 = list.find(k => k.metadata.permission == "write") match {
+            case Some(k) => k.key
+            case None => ""
+          }
+
+          readKey2 must beMatching(uidRegex)
+          writeKey2 must beMatching(uidRegex)
+        }
+      }
+
+      "return a 200 if both keys exist" in {
+        Put(vendorPrefixUrl + otherVendorPrefix) ~>
+        addHeader("api_Key", superKey) ~> sealRoute(routes) ~> check {
+          val response = responseAs[String]
+          val list = parse(response).extract[List[ResApiKey]]
+
+          val newReadKey =
+            list.find(k => k.metadata.permission == "read") match {
+              case Some(k) => k.key
+              case None => ""
+            }
+          val newWriteKey =
+            list.find(k => k.metadata.permission == "write") match {
+              case Some(k) => k.key
+              case None => ""
+            }
+
+          newReadKey must beMatching(uidRegex)
+          newReadKey must not be equalTo(readKey2)
+          readKey2 = newReadKey
+          newWriteKey must beMatching(uidRegex)
+          newWriteKey must not be equalTo(writeKey2)
+          writeKey2 = newWriteKey
+
+          status === OK
+          response must contain("read") and contain("write")
+        }
+      }
+
+      "return a 200 if one key exists" in {
+        Delete(keyUrl + readKey2) ~> addHeader("api_key", superKey)
+        Put(vendorPrefixUrl + otherVendorPrefix) ~>
+        addHeader("api_key", superKey) ~> sealRoute(routes) ~> check {
+          val response = responseAs[String]
+          val list = parse(response).extract[List[ResApiKey]]
+
+          val newReadKey =
+            list.find(k => k.metadata.permission == "read") match {
+              case Some(k) => k.key
+              case None => ""
+            }
+          val newWriteKey =
+            list.find(k => k.metadata.permission == "write") match {
+              case Some(k) => k.key
+              case None => ""
+            }
+
+          newReadKey must beMatching(uidRegex)
+          newReadKey must not be equalTo(readKey2)
+          newWriteKey must beMatching(uidRegex)
+          newWriteKey must not be equalTo(writeKey2)
+
+          status === OK
+          response must contain("read") and contain("write")
         }
       }
     }
