@@ -32,6 +32,14 @@ import java.util.UUID
 object ApiKeyActor {
 
   /**
+   * Message to send in order to add a (read, write) pair of keys for the
+   * specified vendor prefix if it is not conflicting with an existing one.
+   * @param vendorPrefix the API keys to be generated will have this prefix
+   * prefix
+   */
+  case class AddReadWriteKeys(vendorPrefix: String)
+
+  /**
    * Message to send in order to retrieve a (vendorPrefix, permission) pair if
    * the key exists.
    * @param uid identifier for the API key to be retrieved
@@ -64,14 +72,6 @@ object ApiKeyActor {
    * @param vendorPrefix the API keys having this vendor prefix will be deleted
    */
   case class DeleteKeys(vendorPrefix: String)
-
-  /**
-   * Message to send in order to add a (write, read) pair of keys for the
-   * specified vendor prefix if it is not conflicting with an existing one.
-   * @param vendorPrefix the API keys to be generated will have this vendor
-   * prefix
-   */
-  case class AddBothKey(vendorPrefix: String)
 }
 
 /**
@@ -89,6 +89,9 @@ class ApiKeyActor extends Actor {
    */
   def receive = {
 
+    case AddReadWriteKeys(vendorPrefix) =>
+      sender ! apiKey.addReadWrite(vendorPrefix)
+
     case Auth(uid) => sender ! apiKey.get(uid)
 
     case GetKey(uid) => sender ! apiKey.get(uid)
@@ -100,7 +103,5 @@ class ApiKeyActor extends Actor {
 
     case DeleteKeys(vendorPrefix) =>
       sender ! apiKey.deleteFromVendorPrefix(vendorPrefix)
-
-    case AddBothKey(vendorPrefix) => sender ! apiKey.addReadWrite(vendorPrefix)
   }
 }

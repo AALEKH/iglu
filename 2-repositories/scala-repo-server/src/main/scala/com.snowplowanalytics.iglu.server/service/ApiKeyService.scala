@@ -120,7 +120,8 @@ class ApiKeyService(apiKeyActor: ActorRef)
   def addRoute =
     path(Segment) { vendorPrefix =>
       complete {
-        (apiKeyActor ? AddBothKey(vendorPrefix)).mapTo[(StatusCode, String)]
+        (apiKeyActor ? AddReadWriteKeys(vendorPrefix))
+          .mapTo[(StatusCode, String)]
       }
     }
 

@@ -71,10 +71,10 @@ class ApiKeyActorSpec extends TestKit(ActorSystem()) with SpecificationLike
 
   "ApiKeyActor" should {
 
-    "for AddBothKey" should {
+    "for AddReadWriteKeys" should {
 
       "return a 200 for a non-conflicting vendor prefix" in {
-        val future = key ? AddBothKey(vendorPrefix)
+        val future = key ? AddReadWriteKeys(vendorPrefix)
         val Success((status: StatusCode, result: String)) = future.value.get
 
         val list = parse(result).extract[List[ResApiKey]]
@@ -91,7 +91,7 @@ class ApiKeyActorSpec extends TestKit(ActorSystem()) with SpecificationLike
       }
 
       "return a 401 if the vendor prefix is conflicting" in {
-        val future = key ? AddBothKey(faultyVendorPrefix)
+        val future = key ? AddReadWriteKeys(faultyVendorPrefix)
         val Success((status: StatusCode, result: String)) = future.value.get
         status === Unauthorized
         result must
