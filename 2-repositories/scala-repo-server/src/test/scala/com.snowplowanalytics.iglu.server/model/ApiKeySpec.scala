@@ -136,8 +136,21 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
 
     "for regenerate" should {
 
-      "return a 201 and add the API keys properly if the prefix doesnt" +
-      " already exist" in {
+      "return a 401 if the vendor prefix is conflicting" in {
+        val (status, res) = apiKey.regenerate(faultyVendorPrefix)
+        status === Unauthorized
+        res must
+          contain("This vendor prefix is conflicting with an existing one")
+
+        database withDynSession {
+          Q.queryNA[Int](
+            s"""select count(*)
+            from ${tableName}
+            where vendor_prefix = '${faultyVendorPrefix}';""").first === 0
+        }
+      }
+
+      "return a 201 if the prefix doesnt already exist" in {
         val (status, res) = apiKey.regenerate(otherVendorPrefix)
         val list = parse(res).extract[List[ResApiKey]]
 
@@ -221,11 +234,10 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
         val (status, res) = apiKey.regenerate(otherVendorPrefix)
         val list = parse(res).extract[List[ResApiKey]]
 
-        val newReadKey =
-          list.find(k => k.metadata.permission == "read") match {
-            case Some(k) => k.key
-            case None => ""
-          }
+        val newReadKey = list.find(k => k.metadata.permission == "read") match {
+          case Some(k) => k.key
+          case None => ""
+        }
         val newWriteKey =
           list.find(k => k.metadata.permission == "write") match {
             case Some(k) => k.key

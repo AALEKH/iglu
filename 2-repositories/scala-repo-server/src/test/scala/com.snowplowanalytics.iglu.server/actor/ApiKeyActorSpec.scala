@@ -60,12 +60,15 @@ class ApiKeyActorSpec extends TestKit(ActorSystem()) with SpecificationLike
   implicit val formats = DefaultFormats
 
   val vendorPrefix = "com.actor.unit.test"
+  val otherVendorPrefix = "com.benben"
   val faultyVendorPrefix = "com.actor.unit"
 
   val notUuidKey = "this-is-not-an-uid"
 
   var readKey = ""
+  var readKey2 = ""
   var writeKey = ""
+  var writeKey2 = ""
 
   sequential
 
@@ -73,7 +76,7 @@ class ApiKeyActorSpec extends TestKit(ActorSystem()) with SpecificationLike
 
     "for AddReadWriteKeys" should {
 
-      "return a 200 for a non-conflicting vendor prefix" in {
+      "return a 201 for a non-conflicting vendor prefix" in {
         val future = key ? AddReadWriteKeys(vendorPrefix)
         val Success((status: StatusCode, result: String)) = future.value.get
 
@@ -86,6 +89,7 @@ class ApiKeyActorSpec extends TestKit(ActorSystem()) with SpecificationLike
           case Some(k) => k.key
           case None => ""
         }
+
         status === Created
         result must contain("read") and contain("write")
       }
@@ -96,6 +100,85 @@ class ApiKeyActorSpec extends TestKit(ActorSystem()) with SpecificationLike
         status === Unauthorized
         result must
           contain("This vendor prefix is conflicting with an existing one")
+      }
+    }
+
+    "for RegenerateKeys" should {
+
+      "return a 401 if the vendor prefix is conflicting" in {
+        val future = key ? RegenerateKeys(faultyVendorPrefix)
+        val Success((status: StatusCode, result: String)) = future.value.get
+        status === Unauthorized
+        result must
+          contain("This vendor prefix is conflicting with an existing one")
+      }
+
+      "return a 201 if the prefix doesnt already exist" in {
+        val future = key ? RegenerateKeys(otherVendorPrefix)
+        val Success((status: StatusCode, result: String)) = future.value.get
+
+        val list = parse(result).extract[List[ResApiKey]]
+        readKey2 = list.find(k => k.metadata.permission == "read") match {
+          case Some(k) => k.key
+          case None => ""
+        }
+        writeKey2 = list.find(k => k.metadata.permission == "write") match {
+          case Some(k) => k.key
+          case None => ""
+        }
+
+        status === Created
+        result must contain("read") and contain("write")
+      }
+
+      "return a 200 if both keys exist" in {
+        val future = key ? RegenerateKeys(otherVendorPrefix)
+        val Success((status: StatusCode, result: String)) = future.value.get
+
+        val list = parse(result).extract[List[ResApiKey]]
+        val newReadKey = list.find(k => k.metadata.permission == "read") match {
+          case Some(k) => k.key
+          case None => ""
+        }
+        val newWriteKey =
+          list.find(k => k.metadata.permission == "write") match {
+            case Some(k) => k.key
+            case None => ""
+          }
+
+        newReadKey must not be equalTo(readKey2)
+        readKey2 = newReadKey
+        newWriteKey must not be equalTo(writeKey2)
+        writeKey2 = newWriteKey
+
+        status === OK
+        result must contain("read") and contain("write")
+      }
+
+      "return a 200 if one key exists" in {
+        (key ? DeleteKey(UUID.fromString(readKey2))).value.get
+
+        val future = key ? RegenerateKeys(otherVendorPrefix)
+        val Success((status: StatusCode, result: String)) = future.value.get
+
+        val list = parse(result).extract[List[ResApiKey]]
+        val newReadKey = list.find(k => k.metadata.permission == "read") match {
+          case Some(k) => k.key
+          case None => ""
+        }
+        val newWriteKey =
+          list.find(k => k.metadata.permission == "write") match {
+            case Some(k) => k.key
+            case None => ""
+          }
+
+        newReadKey must not be equalTo(readKey2)
+        readKey2 = newReadKey
+        newWriteKey must not be equalTo(writeKey2)
+        writeKey2 = newWriteKey
+
+        status === OK
+        result must contain("read") and contain("write")
       }
     }
 
