@@ -192,7 +192,7 @@ class ApiKeyService(apiKeyActor: ActorRef)
    * vendor prefixes.
    */
   @Path(value = "/vendorprefixes/{vendorPrefixes}")
-  @ApiOperation(value = "Retrieves every API key having this vendor prefix",
+  @ApiOperation(value = "Retrieves every API key having these vendor prefixes",
     httpMethod = "GET")
   @ApiImplicitParams(Array(
     new ApiImplicitParam(name = "vendorPrefixes",
@@ -209,7 +209,7 @@ class ApiKeyService(apiKeyActor: ActorRef)
     new ApiResponse(code = 404, message = "Vendor prefix not found")
   ))
   def readKeysRoute =
-    path(Segment.repeat(separator = ",")) { vendorPrefixes =>
+    path(("[a-z]+\\.[a-z.-]+".r).repeat(separator = ",")) { vendorPrefixes =>
       complete {
         (apiKeyActor ? GetKeys(vendorPrefixes)).mapTo[(StatusCode, String)]
       }
@@ -248,7 +248,7 @@ class ApiKeyService(apiKeyActor: ActorRef)
    * Route to retrieve a list of API keys through their keys.
    */
   @Path(value = "/keys/{keys}")
-  @ApiOperation(value = "Retrieves a single API key", httpMethod = "GET")
+  @ApiOperation(value = "Retrieves a list of API keys", httpMethod = "GET")
   @ApiImplicitParams(Array(
     new ApiImplicitParam(name = "keys",
       value = "Comma-separated list of API keys to be retrieved",
