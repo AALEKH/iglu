@@ -173,7 +173,9 @@ class ApiKeyActorSpec extends TestKit(ActorSystem()) with SpecificationLike
           }
 
         newReadKey must not be equalTo(readKey2)
+        readKey2 = newReadKey
         newWriteKey must not be equalTo(writeKey2)
+        writeKey2 = newWriteKey
 
         status === OK
         result must contain("read") and contain("write")
@@ -206,15 +208,24 @@ class ApiKeyActorSpec extends TestKit(ActorSystem()) with SpecificationLike
     "for GetKey" should {
 
       "return a 200 if the key exists" in {
-        val future = key ? GetKey(UUID.fromString(readKey))
+        val future = key ? GetKey(List(UUID.fromString(readKey)))
         val Success((status: StatusCode, result: String)) = future.value.get
         status === OK
         result must contain(readKey) and contain("read") and
           contain(vendorPrefix)
       }
 
+      "return a 200 if the keys exist" in {
+        val future = key ?
+          GetKey(List(UUID.fromString(readKey), UUID.fromString(writeKey)))
+        val Success((status: StatusCode, result: String)) = future.value.get
+        status === OK
+        result must contain(readKey) and contain(writeKey) and
+          contain(vendorPrefix)
+      }
+
       "return a 404 if the key doesnt exist" in {
-        val future = key ? GetKey(UUID.randomUUID)
+        val future = key ? GetKey(List(UUID.randomUUID))
         val Success((status: StatusCode, result: String)) = future.value.get
         status === NotFound
         result must contain("API key not found")
@@ -224,16 +235,25 @@ class ApiKeyActorSpec extends TestKit(ActorSystem()) with SpecificationLike
     "for GetKeys" should {
 
       "return a 200 if there are keys associated with this vendor prefix" in {
-        val future = key ? GetKeys(vendorPrefix)
+        val future = key ? GetKeys(List(vendorPrefix))
         val Success((status: StatusCode, result: String)) = future.value.get
         status === OK
         result must contain(readKey) and contain(writeKey) and
           contain(vendorPrefix)
       }
 
+      "return a 200 if there are keys associated with these prefixes" in {
+        val future = key ? GetKeys(List(vendorPrefix, otherVendorPrefix))
+        val Success((status: StatusCode, result: String)) = future.value.get
+        status === OK
+        result must contain(readKey) and contain(writeKey) and
+          contain(readKey2) and contain(writeKey2) and
+          contain(vendorPrefix) and contain(otherVendorPrefix)
+      }
+
       "return a 404 if there are no API keys associated with this vendor" +
       "prefix" in {
-        val future = key ? GetKeys(faultyVendorPrefix)
+        val future = key ? GetKeys(List(faultyVendorPrefix))
         val Success((status: StatusCode, result: String)) = future.value.get
         status === NotFound
         result must contain("Vendor prefix not found")

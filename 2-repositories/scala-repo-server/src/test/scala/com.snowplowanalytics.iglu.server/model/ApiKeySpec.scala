@@ -313,7 +313,7 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
     "for get" should {
 
       "return a 200 and info about the api key" in {
-        val (status, res) = apiKey.get(UUID.fromString(readKey))
+        val (status, res) = apiKey.get(List(UUID.fromString(readKey)))
         status === OK
         res must contain(readKey) and contain("read") and contain(vendorPrefix)
 
@@ -325,9 +325,25 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
         }
       }
 
+      "return a 200 and info about the api keys" in {
+        val (status, res) =
+          apiKey.get(List(UUID.fromString(readKey), UUID.fromString(writeKey)))
+        status === OK
+        res must contain(readKey) and contain("read") and
+          contain(writeKey) and contain("write") and
+          contain(vendorPrefix)
+
+        database withDynSession {
+          Q.queryNA[Int](
+            s"""select count(*)
+            from ${tableName}
+            where uid = '${readKey}' or uid = '${writeKey}';""").first === 2
+        }
+      }
+
       "return a 404 if the key is not in the db" in {
         val uid = UUID.randomUUID
-        val (status, res) = apiKey.get(uid)
+        val (status, res) = apiKey.get(List(uid))
         status === NotFound
         res must contain("API key not found")
 
@@ -343,7 +359,7 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
     "for getFromVendorPrefix" should {
 
       "return a 200 and info about the api keys" in {
-        val (status, res) = apiKey.getFromVendorPrefix(vendorPrefix)
+        val (status, res) = apiKey.getFromVendorPrefix(List(vendorPrefix))
         status === OK
         res must contain(readKey) and contain(writeKey) and
           contain(vendorPrefix)
@@ -356,8 +372,25 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
         }
       }
 
+      "return a 200 and info about the api keys for those vendor prefixes" in {
+        val (status, res) =
+          apiKey.getFromVendorPrefix(List(vendorPrefix, otherVendorPrefix))
+        status === OK
+        res must contain(vendorPrefix) and contain(otherVendorPrefix) and
+          contain(readKey) and contain(writeKey) and
+          contain(readKey2) and contain(writeKey2)
+
+        database withDynSession {
+          Q.queryNA[Int](
+            s"""select count(*)
+            from ${tableName}
+            where vendor_prefix = '${vendorPrefix}' or
+              vendor_prefix = '${otherVendorPrefix}';""").first === 4
+        }
+      }
+
       "return a 404 if there are no api keys associated with this vendor" in {
-        val (status, res) = apiKey.getFromVendorPrefix(faultyVendorPrefix)
+        val (status, res) = apiKey.getFromVendorPrefix(List(faultyVendorPrefix))
         status === NotFound
         res must contain("Vendor prefix not found")
 

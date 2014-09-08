@@ -237,8 +237,10 @@ class ApiKeyServiceSpec extends Specification
 
           newReadKey must beMatching(uidRegex)
           newReadKey must not be equalTo(readKey2)
+          readKey2 = newReadKey
           newWriteKey must beMatching(uidRegex)
           newWriteKey must not be equalTo(writeKey2)
+          writeKey2 = newWriteKey
 
           status === OK
           response must contain("read") and contain("write")
@@ -273,6 +275,15 @@ class ApiKeyServiceSpec extends Specification
             contain(vendorPrefix)
         }
       }
+
+      "return a 200 if the keys are found and sufficient privileges" in {
+        Get(keyUrl + readKey + "," + writeKey) ~>
+        addHeader("api_key", superKey) ~> sealRoute(routes) ~> check {
+          status === OK
+          responseAs[String] must contain(readKey) and contain(writeKey) and
+            contain(vendorPrefix)
+        }
+      }
     }
 
     "for GET requests with vendor prefix" should {
@@ -292,6 +303,15 @@ class ApiKeyServiceSpec extends Specification
           status === OK
           responseAs[String] must contain(readKey) and contain(writeKey) and
             contain(vendorPrefix)
+        }
+      }
+
+      "return a 200 if there are keys associated with these prefixes" in {
+        Get(vendorPrefixUrl + vendorPrefix + "," + otherVendorPrefix) ~>
+        addHeader("api_key", superKey) ~> sealRoute(routes) ~> check {
+          responseAs[String] must contain(readKey) and contain(writeKey) and
+            contain(readKey2) and contain(writeKey2) and
+            contain(vendorPrefix) and contain(otherVendorPrefix)
         }
       }
 
