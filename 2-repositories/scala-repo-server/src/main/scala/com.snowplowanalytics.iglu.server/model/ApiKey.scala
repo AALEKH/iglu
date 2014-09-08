@@ -130,42 +130,15 @@ class ApiKeyDAO(val db: Database) extends DAO {
 
   /**
    * Gets the vendor prefix associated with an uuid.
-   * @param uid the API key's uuid
-   * @return a status code and json pair containing the vendor prefix associated
-   * with this API key
+   * @param uids the API keys' uuids
+   * @return a status code and json pair containing information about API keys
+   * having these UUIDs.
    */
-  def get(uid: UUID): (StatusCode, String) =
+  def get(uids: List[UUID]): (StatusCode, String) =
     db withDynSession {
       val l: List[ResApiKey] =
         (for {
-          k <- apiKeys if k.uid === uid
-        } yield k)
-          .list
-          .map(k => ResApiKey(k.vendorPrefix, k.uid.toString,
-            Metadata(k.permission,
-              k.createdAt.toString("MM/dd/yyyy HH:mm:ss"),
-              k.updatedAt.toString("MM/dd/yyyy HH:mm:ss"))))
-
-      if (l.length == 1) {
-        (OK, writePretty(l(0)))
-      } else if (l.length == 0) {
-        (NotFound, result(404, "API key not found"))
-      } else {
-        (InternalServerError, result(500, "Something went wrong"))
-      }
-    }
-
-  /**
-   * Gets every API key associated with the given vendor prefix.
-   * @param vendorPrefix vendor prefix of the API keys to be retrieved
-   * @return a status code and json pair containing the list of all API keys
-   * having this vendor prefix
-   */
-  def getFromVendorPrefix(vendorPrefix: String): (StatusCode, String) =
-    db withDynSession {
-      val l: List[ResApiKey] =
-        (for {
-          k <- apiKeys if k.vendorPrefix === vendorPrefix
+          k <- apiKeys if k.uid inSet uids
         } yield k)
           .list
           .map(k => ResApiKey(k.vendorPrefix, k.uid.toString,
@@ -174,7 +147,35 @@ class ApiKeyDAO(val db: Database) extends DAO {
               k.updatedAt.toString("MM/dd/yyyy HH:mm:ss"))))
 
       if (l.length == 0) {
+        (NotFound, result(404, "API key not found"))
+      } else if (l.length == 1) {
+        (OK, writePretty(l(0)))
+      } else {
+        (OK, writePretty(l))
+      }
+    }
+
+  /**
+   * Gets every API key associated with the given vendor prefix.
+   * @param vendorPrefixes list of vendor prefix of the API keys to be retrieved
+   * @return a status code and json pair containing information about API keys
+   * having these UUIDs.
+   */
+  def getFromVendorPrefix(vendorPrefixes: List[String]): (StatusCode, String) =
+    db withDynSession {
+      val l: List[ResApiKey] = (for {
+        k <- apiKeys if k.vendorPrefix inSet vendorPrefixes
+      } yield k)
+        .list
+        .map(k => ResApiKey(k.vendorPrefix, k.uid.toString,
+          Metadata(k.permission,
+            k.createdAt.toString("MM/dd/yyyy HH:mm:ss"),
+            k.updatedAt.toString("MM/dd/yyyy HH:mm:ss"))))
+
+      if (l.length == 0) {
         (NotFound, result(404, "Vendor prefix not found"))
+      } else if (l.length == 1) {
+        (OK, writePretty(l(0)))
       } else {
         (OK, writePretty(l))
       }
@@ -231,7 +232,7 @@ class ApiKeyDAO(val db: Database) extends DAO {
               .map(k => (k.uid, k.updatedAt))
               .update(UUID.randomUUID, new LocalDateTime)
             add(vendorPrefix, "write")
-            getFromVendorPrefix(vendorPrefix)
+            getFromVendorPrefix(List(vendorPrefix))
           case "write" =>
             apiKeys
               .filter(k => k.vendorPrefix === vendorPrefix &&
@@ -239,14 +240,14 @@ class ApiKeyDAO(val db: Database) extends DAO {
               .map(k => (k.uid, k.updatedAt))
               .update(UUID.randomUUID, new LocalDateTime)
             add(vendorPrefix, "read")
-            getFromVendorPrefix(vendorPrefix)
+            getFromVendorPrefix(List(vendorPrefix))
           case "super" =>
             apiKeys
               .filter(k => k.vendorPrefix === vendorPrefix &&
                 k.permission === "super")
               .map(k => (k.uid, k.updatedAt))
               .update(UUID.randomUUID, new LocalDateTime)
-            getFromVendorPrefix(vendorPrefix)
+            getFromVendorPrefix(List(vendorPrefix))
         }
         case 2 =>
           apiKeys
@@ -259,7 +260,7 @@ class ApiKeyDAO(val db: Database) extends DAO {
               k.permission === "write")
             .map(k => (k.uid, k.updatedAt))
             .update(UUID.randomUUID, new LocalDateTime)
-          getFromVendorPrefix(vendorPrefix)
+          getFromVendorPrefix(List(vendorPrefix))
       }
     }
 

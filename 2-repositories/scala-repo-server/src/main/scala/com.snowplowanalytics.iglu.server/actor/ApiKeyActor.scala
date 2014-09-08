@@ -57,16 +57,16 @@ object ApiKeyActor {
   /**
    * Message to send in order to retrieve information about the API key from its
    * UUID.
-   * @param uid API key's UUID
+   * @param uids API keys' UUIDs
    */
-  case class GetKey(uid: UUID)
+  case class GetKey(uids: List[UUID])
 
   /**
    * Message to send in order to retrieve information about the API keys having
    * the specified vendor prefix.
-   * @param vendorPrefix vendor prefix of the API keys to be retrieved
+   * @param vendorPrefixes list of vendor prefix of the API keys to be retrieved
    */
-  case class GetKeys(vendorPrefix: String)
+  case class GetKeys(vendorPrefixes: List[String])
 
   /**
    * Message to send in order to delete a key specifying its uuid.
@@ -105,10 +105,10 @@ class ApiKeyActor extends Actor {
 
     case Auth(uid) => sender ! apiKey.get(uid)
 
-    case GetKey(uid) => sender ! apiKey.get(uid)
+    case GetKey(uids) => sender ! apiKey.get(uids)
 
-    case GetKeys(vendorPrefix) =>
-      sender ! apiKey.getFromVendorPrefix(vendorPrefix)
+    case GetKeys(vendorPrefixes) =>
+      sender ! apiKey.getFromVendorPrefix(vendorPrefixes)
 
     case DeleteKey(uid) => sender ! apiKey.delete(uid)
 

@@ -32,6 +32,7 @@ import spray.http.MediaTypes._
 import spray.http.StatusCode
 import spray.http.StatusCodes._
 import spray.routing._
+import spray.routing.PathMatcher.Lift
 
 // Swagger
 import com.wordnik.swagger.annotations._
@@ -187,15 +188,16 @@ class ApiKeyService(apiKeyActor: ActorRef)
     }
 
   /**
-   * Route to retrieve every API key having a specific vendor prefix.
+   * Route to retrieve every API key having a vendor prefix in the list of
+   * vendor prefixes.
    */
-  @Path(value = "/vendorprefixes/{vendorPrefix}")
+  @Path(value = "/vendorprefixes/{vendorPrefixes}")
   @ApiOperation(value = "Retrieves every API key having this vendor prefix",
     httpMethod = "GET")
   @ApiImplicitParams(Array(
-    new ApiImplicitParam(name = "vendorPrefix",
-      value = "API keys' vendor prefix", required = true, dataType = "string",
-      paramType = "path")
+    new ApiImplicitParam(name = "vendorPrefixes",
+      value = "Comma-separated list of API keys' vendor prefix",
+      required = true, dataType = "string", paramType = "path")
   ))
   @ApiResponses(Array(
     new ApiResponse(code = 401,
@@ -207,9 +209,9 @@ class ApiKeyService(apiKeyActor: ActorRef)
     new ApiResponse(code = 404, message = "Vendor prefix not found")
   ))
   def readKeysRoute =
-    path(Segment) { vendorPrefix =>
+    path(Segment.repeat(separator = ",")) { vendorPrefixes =>
       complete {
-        (apiKeyActor ? GetKeys(vendorPrefix)).mapTo[(StatusCode, String)]
+        (apiKeyActor ? GetKeys(vendorPrefixes)).mapTo[(StatusCode, String)]
       }
     }
 
@@ -243,12 +245,13 @@ class ApiKeyService(apiKeyActor: ActorRef)
     }
 
   /**
-   * Route to retrieve a single API key.
+   * Route to retrieve a list of API keys through their keys.
    */
-  @Path(value = "/keys/{key}")
+  @Path(value = "/keys/{keys}")
   @ApiOperation(value = "Retrieves a single API key", httpMethod = "GET")
   @ApiImplicitParams(Array(
-    new ApiImplicitParam(name = "key", value = "API key to be retrieved",
+    new ApiImplicitParam(name = "keys",
+      value = "Comma-separated list of API keys to be retrieved",
       required = true, dataType = "string", paramType = "path")
   ))
   @ApiResponses(Array(
@@ -264,9 +267,9 @@ class ApiKeyService(apiKeyActor: ActorRef)
     new ApiResponse(code = 500, message = "Something went wrong")
   ))
   def readKeyRoute =
-    path(JavaUUID) { key =>
+    path(JavaUUID.repeat(separator = ",")) { keys =>
       complete {
-        (apiKeyActor ? GetKey(key)).mapTo[(StatusCode, String)]
+        (apiKeyActor ? GetKey(keys)).mapTo[(StatusCode, String)]
       }
     }
 }
