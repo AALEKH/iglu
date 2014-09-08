@@ -130,15 +130,49 @@ class ApiKeyDAO(val db: Database) extends DAO {
 
   /**
    * Gets the vendor prefix associated with an uuid.
+   * @param permission API key's permission
    * @param uids the API keys' uuids
    * @return a status code and json pair containing information about API keys
    * having these UUIDs.
    */
-  def get(uids: List[UUID]): (StatusCode, String) =
-    db withDynSession {
-      val l: List[ResApiKey] =
-        (for {
-          k <- apiKeys if k.uid inSet uids
+  def get(permission: String, uids: List[UUID]): (StatusCode, String) =
+    if (permission == "super") {
+      db withDynSession {
+        val l: List[ResApiKey] =
+          (for {
+            k <- apiKeys if k.uid inSet uids
+          } yield k)
+            .list
+            .map(k => ResApiKey(k.vendorPrefix, k.uid.toString,
+              Metadata(k.permission,
+                k.createdAt.toString("MM/dd/yyyy HH:mm:ss"),
+                k.updatedAt.toString("MM/dd/yyyy HH:mm:ss"))))
+
+        if (l.length == 0) {
+          (NotFound, result(404, "API key not found"))
+        } else if (l.length == 1) {
+          (OK, writePretty(l(0)))
+        } else {
+          (OK, writePretty(l))
+        }
+      }
+    } else {
+      (Unauthorized, result(401, "You do not have sufficient privileges"))
+    }
+
+  /**
+   * Gets every API key associated with the given vendor prefix.
+   * @param permission API key's permission
+   * @param vendorPrefixes list of vendor prefix of the API keys to be retrieved
+   * @return a status code and json pair containing information about API keys
+   * having these UUIDs.
+   */
+  def getFromVendorPrefix(permission: String, vendorPrefixes: List[String]):
+  (StatusCode, String) =
+    if (permission == "write") {
+      db withDynSession {
+        val l: List[ResApiKey] = (for {
+          k <- apiKeys if k.vendorPrefix inSet vendorPrefixes
         } yield k)
           .list
           .map(k => ResApiKey(k.vendorPrefix, k.uid.toString,
@@ -146,150 +180,151 @@ class ApiKeyDAO(val db: Database) extends DAO {
               k.createdAt.toString("MM/dd/yyyy HH:mm:ss"),
               k.updatedAt.toString("MM/dd/yyyy HH:mm:ss"))))
 
-      if (l.length == 0) {
-        (NotFound, result(404, "API key not found"))
-      } else if (l.length == 1) {
-        (OK, writePretty(l(0)))
-      } else {
-        (OK, writePretty(l))
+        if (l.length == 0) {
+          (NotFound, result(404, "Vendor prefix not found"))
+        } else if (l.length == 1) {
+          (OK, writePretty(l(0)))
+        } else {
+          (OK, writePretty(l))
+        }
       }
-    }
-
-  /**
-   * Gets every API key associated with the given vendor prefix.
-   * @param vendorPrefixes list of vendor prefix of the API keys to be retrieved
-   * @return a status code and json pair containing information about API keys
-   * having these UUIDs.
-   */
-  def getFromVendorPrefix(vendorPrefixes: List[String]): (StatusCode, String) =
-    db withDynSession {
-      val l: List[ResApiKey] = (for {
-        k <- apiKeys if k.vendorPrefix inSet vendorPrefixes
-      } yield k)
-        .list
-        .map(k => ResApiKey(k.vendorPrefix, k.uid.toString,
-          Metadata(k.permission,
-            k.createdAt.toString("MM/dd/yyyy HH:mm:ss"),
-            k.updatedAt.toString("MM/dd/yyyy HH:mm:ss"))))
-
-      if (l.length == 0) {
-        (NotFound, result(404, "Vendor prefix not found"))
-      } else if (l.length == 1) {
-        (OK, writePretty(l(0)))
-      } else {
-        (OK, writePretty(l))
-      }
+    } else {
+      (Unauthorized, result(401, "You do not have sufficient privileges"))
     }
 
   /**
    * Deletes an API key from its uuid.
+   * @param permission API key's permission
    * @param uid the API key's uuid
    * @return a status code and json response pair
    */
-  def delete(uid: UUID): (StatusCode, String) =
-    db withDynSession {
-      apiKeys.filter(_.uid === uid).delete match {
-        case 0 => (NotFound, result(404, "API key not found"))
-        case 1 => (OK, result(200, "API key successfully deleted"))
-        case _ => (InternalServerError, result(500, "Something went wrong"))
+  def delete(permission: String, uid: UUID): (StatusCode, String) =
+    if (permission == "super") {
+      db withDynSession {
+        apiKeys.filter(_.uid === uid).delete match {
+          case 0 => (NotFound, result(404, "API key not found"))
+          case 1 => (OK, result(200, "API key successfully deleted"))
+          case _ => (InternalServerError, result(500, "Something went wrong"))
+        }
       }
+    } else {
+      (Unauthorized, result(401, "You do not have sufficient privileges"))
     }
 
   /**
    * Deletes all API keys having the specified vendor prefix.
+   * @param permission API key's permission
    * @param vendorPrefix vendor prefix of the API keys we want to delete
    * @return a (status code, json response) pair
    */
-  def deleteFromVendorPrefix(vendorPrefix: String): (StatusCode, String) =
-    db withDynSession {
-      apiKeys.filter(_.vendorPrefix === vendorPrefix).delete match {
-        case 0 => (NotFound, result(404, "Vendor prefix not found"))
-        case 1 => (OK, result(200, "API key deleted for " + vendorPrefix))
-        case n => (OK, result(200, "API keys deleted for " + vendorPrefix))
+  def deleteFromVendorPrefix(permission: String, vendorPrefix: String):
+  (StatusCode, String) =
+    if (permission == "super") {
+      db withDynSession {
+        apiKeys.filter(_.vendorPrefix === vendorPrefix).delete match {
+          case 0 => (NotFound, result(404, "Vendor prefix not found"))
+          case 1 => (OK, result(200, "API key deleted for " + vendorPrefix))
+          case n => (OK, result(200, "API keys deleted for " + vendorPrefix))
+        }
       }
+    } else {
+      (Unauthorized, result(401, "You do not have sufficient privileges"))
     }
 
   /**
    * Updates the API keys having the specified vendor prefix.
+   * @param permission API key's permission
    * @param vendorPrefix vendor prefix of the API keys we want to update
    * @return a (status code, json response) pair
    */
-  def regenerate(vendorPrefix: String): (StatusCode, String) =
-    db withDynSession {
-      val l = (for {
-        k <- apiKeys if k.vendorPrefix === vendorPrefix
-      } yield k)
-        .map(k => (k.uid, k.permission))
-        .list
+  def regenerate(permission: String, vendorPrefix: String):
+  (StatusCode, String) =
+    if (permission == "super") {
+      db withDynSession {
+        val l = (for {
+          k <- apiKeys if k.vendorPrefix === vendorPrefix
+        } yield k)
+          .map(k => (k.uid, k.permission))
+          .list
 
-      (l.length: @unchecked) match {
-        case 0 => addReadWrite(vendorPrefix)
-        case 1 => (l(0)._2: @unchecked) match {
-          case "read" =>
+        (l.length: @unchecked) match {
+          case 0 => addReadWrite(permission, vendorPrefix)
+          case 1 => (l(0)._2: @unchecked) match {
+            case "read" =>
+              apiKeys
+                .filter(k => k.vendorPrefix === vendorPrefix &&
+                  k.permission === "read")
+                .map(k => (k.uid, k.updatedAt))
+                .update(UUID.randomUUID, new LocalDateTime)
+              add(vendorPrefix, "write")
+              getFromVendorPrefix(permission, List(vendorPrefix))
+            case "write" =>
+              apiKeys
+                .filter(k => k.vendorPrefix === vendorPrefix &&
+                  k.permission === "write")
+                .map(k => (k.uid, k.updatedAt))
+                .update(UUID.randomUUID, new LocalDateTime)
+              add(vendorPrefix, "read")
+              getFromVendorPrefix(permission, List(vendorPrefix))
+            case "super" =>
+              apiKeys
+                .filter(k => k.vendorPrefix === vendorPrefix &&
+                  k.permission === "super")
+                .map(k => (k.uid, k.updatedAt))
+                .update(UUID.randomUUID, new LocalDateTime)
+              getFromVendorPrefix(permission, List(vendorPrefix))
+          }
+          case 2 =>
             apiKeys
               .filter(k => k.vendorPrefix === vendorPrefix &&
                 k.permission === "read")
               .map(k => (k.uid, k.updatedAt))
               .update(UUID.randomUUID, new LocalDateTime)
-            add(vendorPrefix, "write")
-            getFromVendorPrefix(List(vendorPrefix))
-          case "write" =>
             apiKeys
               .filter(k => k.vendorPrefix === vendorPrefix &&
                 k.permission === "write")
               .map(k => (k.uid, k.updatedAt))
               .update(UUID.randomUUID, new LocalDateTime)
-            add(vendorPrefix, "read")
-            getFromVendorPrefix(List(vendorPrefix))
-          case "super" =>
-            apiKeys
-              .filter(k => k.vendorPrefix === vendorPrefix &&
-                k.permission === "super")
-              .map(k => (k.uid, k.updatedAt))
-              .update(UUID.randomUUID, new LocalDateTime)
-            getFromVendorPrefix(List(vendorPrefix))
+            getFromVendorPrefix(permission, List(vendorPrefix))
         }
-        case 2 =>
-          apiKeys
-            .filter(k => k.vendorPrefix === vendorPrefix &&
-              k.permission === "read")
-            .map(k => (k.uid, k.updatedAt))
-            .update(UUID.randomUUID, new LocalDateTime)
-          apiKeys
-            .filter(k => k.vendorPrefix === vendorPrefix &&
-              k.permission === "write")
-            .map(k => (k.uid, k.updatedAt))
-            .update(UUID.randomUUID, new LocalDateTime)
-          getFromVendorPrefix(List(vendorPrefix))
       }
+    } else {
+      (Unauthorized, result(401, "You do not have sufficient privileges"))
     }
 
   /**
    * Adds both read and write API keys for a vendor prefix after validating it.
+   * @param permission API key's permission
    * @param vendorPrefix vendorPrefix of the new pair of keys
    * @returns a status code and a json containing the pair of API keys.
    */
-  def addReadWrite(vendorPrefix: String): (StatusCode, String) =
-    db withDynSession {
-      if (validate(vendorPrefix)) {
-        val (statusRead, keyRead) = add(vendorPrefix, "read")
-        val (statusWrite, keyWrite) = add(vendorPrefix, "write")
+  def addReadWrite(permission: String, vendorPrefix: String):
+  (StatusCode, String) =
+    if (permission == "super") {
+      db withDynSession {
+        if (validate(vendorPrefix)) {
+          val (statusRead, keyRead) = add(vendorPrefix, "read")
+          val (statusWrite, keyWrite) = add(vendorPrefix, "write")
 
-        if(statusRead == InternalServerError ||
-          statusWrite == InternalServerError) {
-            delete(UUID.fromString(keyRead))
-            delete(UUID.fromString(keyWrite))
-            (InternalServerError, result(500, "Something went wrong"))
-          } else {
-            val now = new LocalDateTime().toString("MM/dd/yyyy HH:mm:ss")
-            (Created, writePretty(List(
-              ResApiKey(vendorPrefix, keyRead, Metadata("read", now, now)),
-              ResApiKey(vendorPrefix, keyWrite, Metadata("write", now, now))
-            )))
-          }
-      } else {
-        (Unauthorized, "This vendor prefix is conflicting with an existing one")
+          if(statusRead == InternalServerError ||
+            statusWrite == InternalServerError) {
+              delete(permission, UUID.fromString(keyRead))
+              delete(permission, UUID.fromString(keyWrite))
+              (InternalServerError, result(500, "Something went wrong"))
+            } else {
+              val now = new LocalDateTime().toString("MM/dd/yyyy HH:mm:ss")
+              (Created, writePretty(List(
+                ResApiKey(vendorPrefix, keyRead, Metadata("read", now, now)),
+                ResApiKey(vendorPrefix, keyWrite, Metadata("write", now, now))
+              )))
+            }
+        } else {
+          (Unauthorized,
+            result(401, "This vendor prefix is conflicting with an existing one"))
+        }
       }
+    } else {
+      (Unauthorized, result(401, "You do not have sufficient privileges"))
     }
 
   /**

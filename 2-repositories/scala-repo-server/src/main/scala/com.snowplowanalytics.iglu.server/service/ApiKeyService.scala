@@ -69,31 +69,27 @@ class ApiKeyService(apiKeyActor: ActorRef)
     rejectEmptyResponse {
       respondWithMediaType(`application/json`) {
         auth { authPair =>
-          if (authPair._2 == "super") {
-            pathPrefix("keys") {
-              delete {
-                deleteKeyRoute
-              } ~
-              get {
-                readKeyRoute
-              }
+          pathPrefix("keys") {
+            delete {
+              deleteKeyRoute(authPair._2)
             } ~
-            pathPrefix("vendorprefixes") {
-              post {
-                addRoute
-              } ~
-              put {
-                regenerateRoute
-              } ~
-              delete {
-                deleteKeysRoute
-              } ~
-              get {
-                readKeysRoute
-              }
+            get {
+              readKeyRoute(authPair._2)
             }
-          } else {
-            complete(Unauthorized, "You do not have sufficient privileges")
+          } ~
+          pathPrefix("vendorprefixes") {
+            post {
+              addRoute(authPair._2)
+            } ~
+            put {
+              regenerateRoute(authPair._2)
+            } ~
+            delete {
+              deleteKeysRoute(authPair._2)
+            } ~
+            get {
+              readKeysRoute(authPair._2)
+            }
           }
         }
       }
@@ -101,6 +97,7 @@ class ApiKeyService(apiKeyActor: ActorRef)
 
   /**
    * Route to generate a pair of read and write API keys.
+   * @param permission API key's permission
    */
   @Path(value = "/vendorprefixes/{vendorPrefix}")
   @ApiOperation(value = "Generates a pair of read and read/write API keys",
@@ -121,16 +118,17 @@ class ApiKeyService(apiKeyActor: ActorRef)
       authentication, which was not supplied with the request"""),
     new ApiResponse(code = 500, message = "Something went wrong")
   ))
-  def addRoute =
+  def addRoute(permission: String) =
     path(Segment) { vendorPrefix =>
       complete {
-        (apiKeyActor ? AddReadWriteKeys(vendorPrefix))
+        (apiKeyActor ? AddReadWriteKeys(permission, vendorPrefix))
           .mapTo[(StatusCode, String)]
       }
     }
 
   /**
    * Route to regenerate a pair of a read and write API keys.
+   * @param permission API key's permission
    */
   @Path(value = "/vendorprefixes/{vendorPrefix}")
   @ApiOperation(value = "Regenerates a pair of read and read/write API keys",
@@ -151,15 +149,17 @@ class ApiKeyService(apiKeyActor: ActorRef)
       authentication, which was not supplied with the request"""),
     new ApiResponse(code = 500, message = "Something went wrong")
   ))
-  def regenerateRoute =
+  def regenerateRoute(permission: String) =
     path(Segment) { vendorPrefix =>
       complete {
-        (apiKeyActor ? RegenerateKeys(vendorPrefix)).mapTo[(StatusCode, String)]
+        (apiKeyActor ? RegenerateKeys(permission, vendorPrefix))
+          .mapTo[(StatusCode, String)]
       }
     }
 
   /**
    * Route to delete every API key having a specific vendor prefix.
+   * @param permission API key's permission
    */
   @Path(value = "/vendorprefixes/{vendorPrefix}")
   @ApiOperation(value = "Deletes every API key having this vendor prefix",
@@ -180,16 +180,18 @@ class ApiKeyService(apiKeyActor: ActorRef)
       authentication, which was not supplied with the request"""),
     new ApiResponse(code = 404, message = "Vendor prefix not found")
   ))
-  def deleteKeysRoute =
+  def deleteKeysRoute(permission: String) =
     path(Segment) { vendorPrefix =>
       complete {
-        (apiKeyActor ? DeleteKeys(vendorPrefix)).mapTo[(StatusCode, String)]
+        (apiKeyActor ? DeleteKeys(permission, vendorPrefix))
+          .mapTo[(StatusCode, String)]
       }
     }
 
   /**
    * Route to retrieve every API key having a vendor prefix in the list of
    * vendor prefixes.
+   * @param permission API key's permission
    */
   @Path(value = "/vendorprefixes/{vendorPrefixes}")
   @ApiOperation(value = "Retrieves every API key having these vendor prefixes",
@@ -208,15 +210,17 @@ class ApiKeyService(apiKeyActor: ActorRef)
       authentication, which was not supplied with the request"""),
     new ApiResponse(code = 404, message = "Vendor prefix not found")
   ))
-  def readKeysRoute =
+  def readKeysRoute(permission: String) =
     path(("[a-z]+\\.[a-z.-]+".r).repeat(separator = ",")) { vendorPrefixes =>
       complete {
-        (apiKeyActor ? GetKeys(vendorPrefixes)).mapTo[(StatusCode, String)]
+        (apiKeyActor ? GetKeys(permission, vendorPrefixes))
+          .mapTo[(StatusCode, String)]
       }
     }
 
   /**
    * Route to delete a single API key.
+   * @param permission API key's permission
    */
   @Path(value = "/keys/{key}")
   @ApiOperation(value = "Deletes a single API key", httpMethod = "DELETE")
@@ -237,15 +241,16 @@ class ApiKeyService(apiKeyActor: ActorRef)
     new ApiResponse(code = 404, message = "API key not found"),
     new ApiResponse(code = 500, message = "Something went wrong")
   ))
-  def deleteKeyRoute =
+  def deleteKeyRoute(permission: String) =
     path(JavaUUID) { key =>
       complete {
-        (apiKeyActor ? DeleteKey(key)).mapTo[(StatusCode, String)]
+        (apiKeyActor ? DeleteKey(permission, key)).mapTo[(StatusCode, String)]
       }
     }
 
   /**
    * Route to retrieve a list of API keys through their keys.
+   * @param permission API key's permission
    */
   @Path(value = "/keys/{keys}")
   @ApiOperation(value = "Retrieves a list of API keys", httpMethod = "GET")
@@ -266,10 +271,10 @@ class ApiKeyService(apiKeyActor: ActorRef)
     new ApiResponse(code = 404, message = "API key not found"),
     new ApiResponse(code = 500, message = "Something went wrong")
   ))
-  def readKeyRoute =
+  def readKeyRoute(permission: String) =
     path(JavaUUID.repeat(separator = ",")) { keys =>
       complete {
-        (apiKeyActor ? GetKey(keys)).mapTo[(StatusCode, String)]
+        (apiKeyActor ? GetKey(permission, keys)).mapTo[(StatusCode, String)]
       }
     }
 }

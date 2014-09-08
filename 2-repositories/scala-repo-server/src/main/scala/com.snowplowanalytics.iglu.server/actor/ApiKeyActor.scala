@@ -34,18 +34,20 @@ object ApiKeyActor {
   /**
    * Message to send in order to add a (read, write) pair of keys for the
    * specified vendor prefix if it is not conflicting with an existing one.
+   * @param permission API key's permission
    * @param vendorPrefix the API keys to be generated will have this prefix
    * prefix
    */
-  case class AddReadWriteKeys(vendorPrefix: String)
+  case class AddReadWriteKeys(permission: String, vendorPrefix: String)
 
   /**
    * Message to send in order to regenerate a (read, write) pair of keys for the
    * specified vendor prefix.
+   * @param permission API key's permission
    * @param vendorPrefix the vendor prefix for which the API keys need to be
    * regenerated
    */
-  case class RegenerateKeys(vendorPrefix: String)
+  case class RegenerateKeys(permission: String, vendorPrefix: String)
 
   /**
    * Message to send in order to retrieve a (vendorPrefix, permission) pair if
@@ -57,29 +59,33 @@ object ApiKeyActor {
   /**
    * Message to send in order to retrieve information about the API key from its
    * UUID.
+   * @param permission API key's permission
    * @param uids API keys' UUIDs
    */
-  case class GetKey(uids: List[UUID])
+  case class GetKey(permission: String, uids: List[UUID])
 
   /**
    * Message to send in order to retrieve information about the API keys having
    * the specified vendor prefix.
+   * @param permission API key's permission
    * @param vendorPrefixes list of vendor prefix of the API keys to be retrieved
    */
-  case class GetKeys(vendorPrefixes: List[String])
+  case class GetKeys(permission: String, vendorPrefixes: List[String])
 
   /**
    * Message to send in order to delete a key specifying its uuid.
+   * @param permission API key's permission
    * @param uid identifier of the API key to be deleted
    */
-  case class DeleteKey(uid: UUID)
+  case class DeleteKey(permission: String, uid: UUID)
 
   /**
    * Message to send in order to delete every keys belonging to the specified
    * vendor prefix.
+   * @param permission API key's permission
    * @param vendorPrefix the API keys having this vendor prefix will be deleted
    */
-  case class DeleteKeys(vendorPrefix: String)
+  case class DeleteKeys(permission: String, vendorPrefix: String)
 }
 
 /**
@@ -97,22 +103,22 @@ class ApiKeyActor extends Actor {
    */
   def receive = {
 
-    case AddReadWriteKeys(vendorPrefix) =>
-      sender ! apiKey.addReadWrite(vendorPrefix)
+    case AddReadWriteKeys(permission, vendorPrefix) =>
+      sender ! apiKey.addReadWrite(permission, vendorPrefix)
 
-    case RegenerateKeys(vendorPrefix) =>
-      sender ! apiKey.regenerate(vendorPrefix)
+    case RegenerateKeys(permission, vendorPrefix) =>
+      sender ! apiKey.regenerate(permission, vendorPrefix)
 
     case Auth(uid) => sender ! apiKey.get(uid)
 
-    case GetKey(uids) => sender ! apiKey.get(uids)
+    case GetKey(permission, uids) => sender ! apiKey.get(permission, uids)
 
-    case GetKeys(vendorPrefixes) =>
-      sender ! apiKey.getFromVendorPrefix(vendorPrefixes)
+    case GetKeys(permission, vendorPrefixes) =>
+      sender ! apiKey.getFromVendorPrefix(permission, vendorPrefixes)
 
-    case DeleteKey(uid) => sender ! apiKey.delete(uid)
+    case DeleteKey(permission, uid) => sender ! apiKey.delete(permission, uid)
 
-    case DeleteKeys(vendorPrefix) =>
-      sender ! apiKey.deleteFromVendorPrefix(vendorPrefix)
+    case DeleteKeys(permission, vendorPrefix) =>
+      sender ! apiKey.deleteFromVendorPrefix(permission, vendorPrefix)
   }
 }

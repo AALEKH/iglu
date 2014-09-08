@@ -62,6 +62,10 @@ class ApiKeyActorSpec extends TestKit(ActorSystem()) with SpecificationLike
   val vendorPrefix = "com.actor.unit.test"
   val otherVendorPrefix = "com.benben"
   val faultyVendorPrefix = "com.actor.unit"
+  val possibleVendorPrefix = "com.no.idea"
+
+  val permission = "super"
+  val faultyPermission = "write"
 
   val notUuidKey = "this-is-not-an-uid"
 
@@ -77,7 +81,7 @@ class ApiKeyActorSpec extends TestKit(ActorSystem()) with SpecificationLike
     "for AddReadWriteKeys" should {
 
       "return a 201 for a non-conflicting vendor prefix" in {
-        val future = key ? AddReadWriteKeys(vendorPrefix)
+        val future = key ? AddReadWriteKeys(permission, vendorPrefix)
         val Success((status: StatusCode, result: String)) = future.value.get
 
         val list = parse(result).extract[List[ResApiKey]]
@@ -95,18 +99,26 @@ class ApiKeyActorSpec extends TestKit(ActorSystem()) with SpecificationLike
       }
 
       "return a 401 if the vendor prefix is conflicting" in {
-        val future = key ? AddReadWriteKeys(faultyVendorPrefix)
+        val future = key ? AddReadWriteKeys(permission, faultyVendorPrefix)
         val Success((status: StatusCode, result: String)) = future.value.get
         status === Unauthorized
         result must
           contain("This vendor prefix is conflicting with an existing one")
+      }
+
+      "return a 401 if the permission is not \"super\"" in {
+        val future  =
+          key ? AddReadWriteKeys(faultyPermission, possibleVendorPrefix)
+        val Success((status: StatusCode, result: String)) = future.value.get
+        status === Unauthorized
+        result must contain("You do not have sufficient privileges")
       }
     }
 
     "for RegenerateKeys" should {
 
       "return a 401 if the vendor prefix is conflicting" in {
-        val future = key ? RegenerateKeys(faultyVendorPrefix)
+        val future = key ? RegenerateKeys(permission, faultyVendorPrefix)
         val Success((status: StatusCode, result: String)) = future.value.get
         status === Unauthorized
         result must
@@ -114,7 +126,7 @@ class ApiKeyActorSpec extends TestKit(ActorSystem()) with SpecificationLike
       }
 
       "return a 201 if the prefix doesnt already exist" in {
-        val future = key ? RegenerateKeys(otherVendorPrefix)
+        val future = key ? RegenerateKeys(permission, otherVendorPrefix)
         val Success((status: StatusCode, result: String)) = future.value.get
 
         val list = parse(result).extract[List[ResApiKey]]
@@ -132,7 +144,7 @@ class ApiKeyActorSpec extends TestKit(ActorSystem()) with SpecificationLike
       }
 
       "return a 200 if both keys exist" in {
-        val future = key ? RegenerateKeys(otherVendorPrefix)
+        val future = key ? RegenerateKeys(permission, otherVendorPrefix)
         val Success((status: StatusCode, result: String)) = future.value.get
 
         val list = parse(result).extract[List[ResApiKey]]
@@ -156,9 +168,9 @@ class ApiKeyActorSpec extends TestKit(ActorSystem()) with SpecificationLike
       }
 
       "return a 200 if one key exists" in {
-        (key ? DeleteKey(UUID.fromString(readKey2))).value.get
+        (key ? DeleteKey(permission, UUID.fromString(readKey2))).value.get
 
-        val future = key ? RegenerateKeys(otherVendorPrefix)
+        val future = key ? RegenerateKeys(permission, otherVendorPrefix)
         val Success((status: StatusCode, result: String)) = future.value.get
 
         val list = parse(result).extract[List[ResApiKey]]
@@ -179,6 +191,14 @@ class ApiKeyActorSpec extends TestKit(ActorSystem()) with SpecificationLike
 
         status === OK
         result must contain("read") and contain("write")
+      }
+
+      "return a 401 if the permission is not \"super\"" in {
+        val future =
+          key ? RegenerateKeys(faultyPermission, possibleVendorPrefix)
+        val Success((status: StatusCode, result: String)) = future.value.get
+        status === Unauthorized
+        result must contain("You do not have sufficient privileges")
       }
     }
 
@@ -208,7 +228,7 @@ class ApiKeyActorSpec extends TestKit(ActorSystem()) with SpecificationLike
     "for GetKey" should {
 
       "return a 200 if the key exists" in {
-        val future = key ? GetKey(List(UUID.fromString(readKey)))
+        val future = key ? GetKey(permission, List(UUID.fromString(readKey)))
         val Success((status: StatusCode, result: String)) = future.value.get
         status === OK
         result must contain(readKey) and contain("read") and
@@ -216,8 +236,8 @@ class ApiKeyActorSpec extends TestKit(ActorSystem()) with SpecificationLike
       }
 
       "return a 200 if the keys exist" in {
-        val future = key ?
-          GetKey(List(UUID.fromString(readKey), UUID.fromString(writeKey)))
+        val future = key ? GetKey(permission,
+          List(UUID.fromString(readKey), UUID.fromString(writeKey)))
         val Success((status: StatusCode, result: String)) = future.value.get
         status === OK
         result must contain(readKey) and contain(writeKey) and
@@ -225,17 +245,25 @@ class ApiKeyActorSpec extends TestKit(ActorSystem()) with SpecificationLike
       }
 
       "return a 404 if the key doesnt exist" in {
-        val future = key ? GetKey(List(UUID.randomUUID))
+        val future = key ? GetKey(permission, List(UUID.randomUUID))
         val Success((status: StatusCode, result: String)) = future.value.get
         status === NotFound
         result must contain("API key not found")
+      }
+
+      "return a 401 if the permission is not \"super\"" in {
+        val future =
+          key ? GetKey(faultyPermission, List(UUID.fromString(readKey)))
+        val Success((status: StatusCode, result: String)) = future.value.get
+        status === Unauthorized
+        result must contain("You do not have sufficient privileges")
       }
     }
 
     "for GetKeys" should {
 
       "return a 200 if there are keys associated with this vendor prefix" in {
-        val future = key ? GetKeys(List(vendorPrefix))
+        val future = key ? GetKeys(permission, List(vendorPrefix))
         val Success((status: StatusCode, result: String)) = future.value.get
         status === OK
         result must contain(readKey) and contain(writeKey) and
@@ -243,7 +271,8 @@ class ApiKeyActorSpec extends TestKit(ActorSystem()) with SpecificationLike
       }
 
       "return a 200 if there are keys associated with these prefixes" in {
-        val future = key ? GetKeys(List(vendorPrefix, otherVendorPrefix))
+        val future =
+          key ? GetKeys(permission, List(vendorPrefix, otherVendorPrefix))
         val Success((status: StatusCode, result: String)) = future.value.get
         status === OK
         result must contain(readKey) and contain(writeKey) and
@@ -253,34 +282,49 @@ class ApiKeyActorSpec extends TestKit(ActorSystem()) with SpecificationLike
 
       "return a 404 if there are no API keys associated with this vendor" +
       "prefix" in {
-        val future = key ? GetKeys(List(faultyVendorPrefix))
+        val future = key ? GetKeys(permission, List(faultyVendorPrefix))
         val Success((status: StatusCode, result: String)) = future.value.get
         status === NotFound
         result must contain("Vendor prefix not found")
+      }
+
+      "return a 401 if the permission is not \"super\"" in {
+        val future = key ? GetKeys(faultyPermission, List(vendorPrefix))
+        val Success((status: StatusCode, result: String)) = future.value.get
+        status === Unauthorized
+        result must contain("You do not have sufficient privileges")
       }
     }
 
     "for DeleteKey" should {
 
       "return a 200 if the key exists" in {
-        val future = key ? DeleteKey(UUID.fromString(readKey))
+        val future = key ? DeleteKey(permission, UUID.fromString(readKey))
         val Success((status: StatusCode, result: String)) = future.value.get
         status === OK
         result must contain("API key successfully deleted")
       }
 
       "return a 404 if the key doesnt exist" in {
-        val future = key ? DeleteKey(UUID.fromString(readKey))
+        val future = key ? DeleteKey(permission, UUID.fromString(readKey))
         val Success((status: StatusCode, result: String)) = future.value.get
         status === NotFound
         result must contain("API key not found")
+      }
+
+      "return a 401 if the permission is not \"super\"" in {
+        val future =
+          key ? DeleteKey(faultyPermission, UUID.fromString(writeKey))
+        val Success((status: StatusCode, result: String)) = future.value.get
+        status === Unauthorized
+        result must contain("You do not have sufficient privileges")
       }
     }
 
     "for DeleteKeys" should {
 
       "return a 200 if there are keys associated with this vendor prefix" in {
-        val future = key ? DeleteKeys(vendorPrefix)
+        val future = key ? DeleteKeys(permission, vendorPrefix)
         val Success((status: StatusCode, result: String)) = future.value.get
         status === OK
         result must contain("API key deleted for " + vendorPrefix)
@@ -288,10 +332,17 @@ class ApiKeyActorSpec extends TestKit(ActorSystem()) with SpecificationLike
 
       "return a 404 if there are no API keys associated with this vendor" +
       "prefix" in {
-        val future = key ? DeleteKeys(vendorPrefix)
+        val future = key ? DeleteKeys(permission, vendorPrefix)
         val Success((status: StatusCode, result: String)) = future.value.get
         status === NotFound
         result must contain("Vendor prefix not found")
+      }
+
+      "return a 401 if the permission is not \"super\"" in {
+        val future = key ? DeleteKeys(faultyPermission, otherVendorPrefix)
+        val Success((status: StatusCode, result: String)) = future.value.get
+        status === Unauthorized
+        result must contain("You do not have sufficient privileges")
       }
     }
   }

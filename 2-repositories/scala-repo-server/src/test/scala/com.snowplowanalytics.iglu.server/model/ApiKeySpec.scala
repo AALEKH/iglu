@@ -50,8 +50,12 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
   val tableName = "apikeys"
   val vendorPrefix = "com.unittest"
   val otherVendorPrefix = "com.benben"
+  val possibleVendorPrefix = "com.no.idea"
   val faultyVendorPrefix = "com.unit"
   val notUid = "this-is-not-an-uuid"
+
+  val permission = "super"
+  val faultyPermission = "write"
 
   var readKey = ""
   var readKey2 = ""
@@ -87,7 +91,7 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
     "for addReadWrite" should {
 
       "return a 201 and add the API keys properly" in {
-        val (status, res) = apiKey.addReadWrite(vendorPrefix)
+        val (status, res) = apiKey.addReadWrite(permission, vendorPrefix)
         val list = parse(res).extract[List[ResApiKey]]
 
         readKey = list.find(k => k.metadata.permission == "read") match {
@@ -120,7 +124,7 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
 
       "return a 401 and not add API keys if the vendor prefix is conflicting" +
       "with an existing one" in {
-        val (status, res) = apiKey.addReadWrite(faultyVendorPrefix)
+        val (status, res) = apiKey.addReadWrite(permission, faultyVendorPrefix)
         status === Unauthorized
         res must
           contain("This vendor prefix is conflicting with an existing one")
@@ -132,12 +136,19 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
             where vendor_prefix = '${faultyVendorPrefix}';""").first === 0
         }
       }
+
+      "return a 401 if the permission is not \"super\"" in {
+        val (status, res) =
+          apiKey.addReadWrite(faultyPermission, possibleVendorPrefix)
+        status === Unauthorized
+        res must contain("You do not have sufficient privileges")
+      }
     }
 
     "for regenerate" should {
 
       "return a 401 if the vendor prefix is conflicting" in {
-        val (status, res) = apiKey.regenerate(faultyVendorPrefix)
+        val (status, res) = apiKey.regenerate(permission, faultyVendorPrefix)
         status === Unauthorized
         res must
           contain("This vendor prefix is conflicting with an existing one")
@@ -151,7 +162,7 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
       }
 
       "return a 201 if the prefix doesnt already exist" in {
-        val (status, res) = apiKey.regenerate(otherVendorPrefix)
+        val (status, res) = apiKey.regenerate(permission, otherVendorPrefix)
         val list = parse(res).extract[List[ResApiKey]]
 
         readKey2 = list.find(k => k.metadata.permission == "read") match {
@@ -183,7 +194,7 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
       }
 
       "return a 200 if both keys exist" in {
-        val (status, res) = apiKey.regenerate(otherVendorPrefix)
+        val (status, res) = apiKey.regenerate(permission, otherVendorPrefix)
         val list = parse(res).extract[List[ResApiKey]]
 
         val newReadKey =
@@ -222,7 +233,7 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
       }
 
       "return a 200 if one key exists" in {
-        apiKey.delete(UUID.fromString(readKey2))
+        apiKey.delete(permission, UUID.fromString(readKey2))
 
         database withDynSession {
           Q.queryNA[Int](
@@ -231,7 +242,7 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
             where vendor_prefix = '${otherVendorPrefix}';""").first === 1
         }
 
-        val (status, res) = apiKey.regenerate(otherVendorPrefix)
+        val (status, res) = apiKey.regenerate(permission, otherVendorPrefix)
         val list = parse(res).extract[List[ResApiKey]]
 
         val newReadKey = list.find(k => k.metadata.permission == "read") match {
@@ -266,6 +277,12 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
             from ${tableName}
             where vendor_prefix = '${otherVendorPrefix}';""").first === 2
         }
+      }
+
+      "return a 401 if the permission is not \"super\"" in {
+        val (status, res) = apiKey.regenerate(faultyPermission, vendorPrefix)
+        status === Unauthorized
+        res must contain("You do not have sufficient privileges")
       }
     }
 
@@ -313,7 +330,8 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
     "for get" should {
 
       "return a 200 and info about the api key" in {
-        val (status, res) = apiKey.get(List(UUID.fromString(readKey)))
+        val (status, res) =
+          apiKey.get(permission, List(UUID.fromString(readKey)))
         status === OK
         res must contain(readKey) and contain("read") and contain(vendorPrefix)
 
@@ -326,8 +344,8 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
       }
 
       "return a 200 and info about the api keys" in {
-        val (status, res) =
-          apiKey.get(List(UUID.fromString(readKey), UUID.fromString(writeKey)))
+        val (status, res) = apiKey.get(permission,
+          List(UUID.fromString(readKey), UUID.fromString(writeKey)))
         status === OK
         res must contain(readKey) and contain("read") and
           contain(writeKey) and contain("write") and
@@ -343,7 +361,7 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
 
       "return a 404 if the key is not in the db" in {
         val uid = UUID.randomUUID
-        val (status, res) = apiKey.get(List(uid))
+        val (status, res) = apiKey.get(permission, List(uid))
         status === NotFound
         res must contain("API key not found")
 
@@ -354,12 +372,20 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
             where uid = '${uid.toString}';""").first === 0
         }
       }
+
+      "return a 401 if the permission is not \"super\"" in {
+        val (status, res) =
+          apiKey.get(faultyPermission, List(UUID.fromString(readKey)))
+        status === Unauthorized
+        res must contain("You do not have sufficient privileges")
+      }
     }
 
     "for getFromVendorPrefix" should {
 
       "return a 200 and info about the api keys" in {
-        val (status, res) = apiKey.getFromVendorPrefix(List(vendorPrefix))
+        val (status, res) =
+          apiKey.getFromVendorPrefix(permission, List(vendorPrefix))
         status === OK
         res must contain(readKey) and contain(writeKey) and
           contain(vendorPrefix)
@@ -373,8 +399,8 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
       }
 
       "return a 200 and info about the api keys for those vendor prefixes" in {
-        val (status, res) =
-          apiKey.getFromVendorPrefix(List(vendorPrefix, otherVendorPrefix))
+        val (status, res) = apiKey.getFromVendorPrefix(permission,
+          List(vendorPrefix, otherVendorPrefix))
         status === OK
         res must contain(vendorPrefix) and contain(otherVendorPrefix) and
           contain(readKey) and contain(writeKey) and
@@ -390,7 +416,8 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
       }
 
       "return a 404 if there are no api keys associated with this vendor" in {
-        val (status, res) = apiKey.getFromVendorPrefix(List(faultyVendorPrefix))
+        val (status, res) =
+          apiKey.getFromVendorPrefix(permission, List(faultyVendorPrefix))
         status === NotFound
         res must contain("Vendor prefix not found")
 
@@ -401,12 +428,19 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
             where vendor_prefix = '${faultyVendorPrefix}';""").first === 0
         }
       }
+
+      "return a 401 if the permission is not \"super\"" in {
+        val (status, res) =
+          apiKey.getFromVendorPrefix(faultyPermission, List(vendorPrefix))
+        status === Unauthorized
+        res must contain("You do not have sufficient privileges")
+      }
     }
 
     "for delete" should {
 
       "return a 200 and delete an API key" in {
-        val (status, res) = apiKey.delete(UUID.fromString(readKey))
+        val (status, res) = apiKey.delete(permission, UUID.fromString(readKey))
         status === OK
         res must contain("API key successfully deleted")
 
@@ -419,7 +453,7 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
       }
 
       "return a 404 if the API key is not in the database" in {
-        val (status, res) = apiKey.delete(UUID.fromString(readKey))
+        val (status, res) = apiKey.delete(permission, UUID.fromString(readKey))
         status === NotFound
         res must contain("API key not found")
 
@@ -430,12 +464,20 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
             where uid = '${readKey}';""").first === 0
         }
       }
+
+      "return a 401 if the permission is not \"super\"" in {
+        val (status, res) =
+          apiKey.delete(faultyPermission, UUID.fromString(writeKey))
+        status === Unauthorized
+        res must contain("You do not have sufficient privileges")
+      }
     }
 
     "for deleteFromVendorPrefix" should {
 
       "return a 200 and delete API keys associated with a vendor prefix" in {
-        val (status, res) = apiKey.deleteFromVendorPrefix(vendorPrefix)
+        val (status, res) =
+          apiKey.deleteFromVendorPrefix(permission, vendorPrefix)
         status === OK
         res must contain("API key deleted for " + vendorPrefix)
 
@@ -449,7 +491,8 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
 
       "return a 404 if there are no API keys associated with this vendor" +
       "prefix" in {
-        val (status, res) = apiKey.deleteFromVendorPrefix(vendorPrefix)
+        val (status, res) =
+          apiKey.deleteFromVendorPrefix(permission, vendorPrefix)
         status === NotFound
         res must contain("Vendor prefix not found")
 
@@ -459,6 +502,13 @@ class ApiKeySpec extends Specification with SetupAndDestroy {
             from ${tableName}
             where vendor_prefix = '${vendorPrefix}';""").first === 0
         }
+      }
+
+      "return a 401 if the permission is not \"super\"" in {
+        val (status, res) =
+          apiKey.deleteFromVendorPrefix(faultyPermission, otherVendorPrefix)
+        status === Unauthorized
+        res must contain("You do not have sufficient privileges")
       }
     }
   }
