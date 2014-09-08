@@ -281,13 +281,10 @@ class ApiKeyDAO(val db: Database) extends DAO {
             delete(UUID.fromString(keyWrite))
             (InternalServerError, result(500, "Something went wrong"))
           } else {
+            val now = new LocalDateTime().toString("MM/dd/yyyy HH:mm:ss")
             (Created, writePretty(List(
-              ResApiKey(vendorPrefix, keyRead, Metadata("read",
-                new LocalDateTime().toString("MM/dd/yyyy HH:mm:ss"),
-                new LocalDateTime().toString("MM/dd/yyyy HH:mm:ss"))),
-              ResApiKey(vendorPrefix, keyWrite, Metadata("write",
-                new LocalDateTime().toString("MM/dd/yyyy HH:mm:ss"),
-                new LocalDateTime().toString("MM/dd/yyyy HH:mm:ss")))
+              ResApiKey(vendorPrefix, keyRead, Metadata("read", now, now)),
+              ResApiKey(vendorPrefix, keyWrite, Metadata("write", now, now))
             )))
           }
       } else {
@@ -305,8 +302,8 @@ class ApiKeyDAO(val db: Database) extends DAO {
   (StatusCode, String) =
     db withDynSession {
       val uid = UUID.randomUUID()
-      apiKeys.insert(ApiKey(uid, vendorPrefix, permission, new LocalDateTime,
-        new LocalDateTime)) match {
+      val now = new LocalDateTime
+      apiKeys.insert(ApiKey(uid, vendorPrefix, permission, now, now)) match {
           case 0 => (InternalServerError, "Something went wrong")
           case n => (OK, uid.toString)
         }

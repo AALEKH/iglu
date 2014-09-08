@@ -590,14 +590,18 @@ class SchemaDAO(val db: Database) extends DAO {
             vendorPrefix, permission) match {
               case (OK, j) => (Unauthorized,
                 result(401, "This schema already exists"))
-              case _ => schemas.insert(
-                Schema(0, vendor, name, format, version, schema,
-                  new LocalDateTime(), new LocalDateTime(), isPublic)) match {
-                    case 0 => (InternalServerError,
-                      result(500, "Something went wrong"))
-                    case n => (Created, result(201, "Schema successfully added",
-                      buildLoc(vendor, name, format, version)))
-                  }
+              case _ => {
+                val now = new LocalDateTime
+                schemas.insert(
+                  Schema(0, vendor, name, format, version, schema, now, now,
+                    isPublic)) match {
+                      case 0 => (InternalServerError,
+                        result(500, "Something went wrong"))
+                      case n => (Created, result(201,
+                        "Schema successfully added",
+                        buildLoc(vendor, name, format, version)))
+                    }
+              }
             }
         }
       } else {
@@ -636,11 +640,11 @@ class SchemaDAO(val db: Database) extends DAO {
                      case _ => (InternalServerError,
                        result(500, "Something went wrong"))
                    }
-               case (NotFound, j) =>
+               case (NotFound, j) => {
+                 val now = new LocalDateTime
                  schemas
                    .insert(
-                     Schema(0, vendor, name, format, version, schema,
-                       new LocalDateTime(), new LocalDateTime(),
+                     Schema(0, vendor, name, format, version, schema, now, now,
                        isPublic)) match {
                          case 0 => (InternalServerError,
                            result(500, "Something went wrong"))
@@ -648,6 +652,7 @@ class SchemaDAO(val db: Database) extends DAO {
                            result(201, "Schema successfully added",
                              buildLoc(vendor, name, format, version)))
                        }
+               }
                case we => we
              }
          }
