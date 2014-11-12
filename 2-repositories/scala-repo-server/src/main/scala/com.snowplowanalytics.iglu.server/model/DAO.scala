@@ -60,7 +60,7 @@ trait DAO {
    * @param location the newly added schema's location
    * @return a well-formatted json
    */
-  def result(status: Int, message: String, location: String): String=
+  def result(status: Int, message: String, location: String): String =
     writePretty(ResultAdded(status, message, location))
 
   /**
